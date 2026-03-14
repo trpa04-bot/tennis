@@ -1,17 +1,26 @@
-# tennis_club_app
+# Tennis Club App
 
-A new Flutter project.
+[![Deploy Flutter Web to Firebase Hosting](https://github.com/trpa04-bot/tennis/actions/workflows/deploy.yml/badge.svg)](https://github.com/trpa04-bot/tennis/actions/workflows/deploy.yml)
 
-## Getting Started
+Flutter aplikacija za vođenje teniskog kluba, igrača, mečeva i tablice.
 
-This project is a starting point for a Flutter application.
+## CI/CD
 
-A few resources to get you started if this is your first Flutter project:
+- Push na main pokreće testove i live deploy na Firebase Hosting.
+- Pull request prema main pokreće testove i preview deploy.
+- Manual deploy je dostupan kroz Actions > Run workflow.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Local run
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- flutter pub get
+- flutter run -d chrome
+
+## Rollback
+
+Ako novi deploy napravi problem:
+
+1. Otvori Firebase Console > Hosting > Releases.
+2. Pronađi prethodni stabilni release.
+3. Promoviraj taj release kao live.
+
+Alternativno, možeš napraviti revert problematičnog commita i push na main, što će pokrenuti novi automatski deploy.

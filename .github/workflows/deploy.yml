@@ -19,8 +19,27 @@ on:
           - preview
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+      - run: flutter pub get
+      - run: flutter test
+
   deploy-live:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy_target == 'live')
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +64,7 @@ jobs:
 
   deploy-preview:
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.deploy_target == 'preview')
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
