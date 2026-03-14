@@ -32,6 +32,9 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+.firebase/
+*firebase-adminsdk*.json
+*adminsdk*.json
 
 # Symbolication related
 app.*.symbols
