@@ -35,7 +35,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
       - run: flutter pub get
-      - run: flutter test
+      - name: Run tests if present
+        run: |
+          if find test -type f -name "*_test.dart" | grep -q .; then
+            flutter test
+          else
+            echo "No test files found. Skipping tests."
+          fi
 
   deploy-live:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy_target == 'live')
