@@ -12,6 +12,8 @@ class PlayersPage extends StatefulWidget {
 }
 
 class _PlayersPageState extends State<PlayersPage> {
+  String selectedLeagueTab = 'all';
+
     void _editPlayerDialog(Player player) {
       final nameController = TextEditingController(text: player.name);
       final ratingController = TextEditingController(text: player.rating.toString());
@@ -223,6 +225,57 @@ class _PlayersPageState extends State<PlayersPage> {
     }
   }
 
+  String _normalizeLeague(String league) {
+    final value = league.trim().toLowerCase();
+    if (value == '1' || value == '1. liga') return '1';
+    if (value == '2' || value == '2. liga') return '2';
+    if (value == '3' || value == '3. liga') return '3';
+    if (value == '4' || value == '4. liga') return '4';
+    return league;
+  }
+
+  Widget _leagueTabButton({
+    required String value,
+    required String label,
+    required IconData icon,
+  }) {
+    final isSelected = selectedLeagueTab == value;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedLeagueTab = value;
+        });
+      },
+      child: Container(
+        width: 88,
+        height: 88,
+        decoration: BoxDecoration(
+          color: isSelected ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.outlineVariant,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -246,6 +299,13 @@ class _PlayersPageState extends State<PlayersPage> {
           }
 
           final players = snapshot.data ?? [];
+          final filteredPlayers = selectedLeagueTab == 'all'
+              ? players
+              : players
+                    .where((p) => _normalizeLeague(p.league) == selectedLeagueTab)
+                    .toList();
+
+          filteredPlayers.sort((a, b) => a.name.compareTo(b.name));
 
           if (players.isEmpty) {
             return const Center(
@@ -253,48 +313,72 @@ class _PlayersPageState extends State<PlayersPage> {
             );
           }
 
-          return ListView.builder(
-            itemCount: players.length,
-            itemBuilder: (context, index) {
-              final player = players[index];
+          return Column(
+            children: [
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: [
+                  _leagueTabButton(value: 'all', label: 'All', icon: Icons.groups),
+                  _leagueTabButton(value: '1', label: '1. liga', icon: Icons.looks_one),
+                  _leagueTabButton(value: '2', label: '2. liga', icon: Icons.looks_two),
+                  _leagueTabButton(value: '3', label: '3. liga', icon: Icons.looks_3),
+                  _leagueTabButton(value: '4', label: '4. liga', icon: Icons.looks_4),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: filteredPlayers.isEmpty
+                    ? const Center(
+                        child: Text('Nema igrača u odabranoj ligi.'),
+                      )
+                    : ListView.builder(
+                        itemCount: filteredPlayers.length,
+                        itemBuilder: (context, index) {
+                          final player = filteredPlayers[index];
 
-              return Card(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(Icons.person),
-                  ),
-                  title: Text(player.name),
-                  subtitle: Text(
-                    '${_leagueLabel(player.league)} • Rating ${player.rating}',
-                  ),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit') {
-                        _editPlayerDialog(player);
-                      } else if (value == 'delete') {
-                        _confirmDelete(player);
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Uredi'),
+                          return Card(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: ListTile(
+                              leading: const CircleAvatar(
+                                child: Icon(Icons.person),
+                              ),
+                              title: Text(player.name),
+                              subtitle: Text(
+                                '${_leagueLabel(player.league)} • Rating ${player.rating}',
+                              ),
+                              trailing: PopupMenuButton<String>(
+                                onSelected: (value) {
+                                  if (value == 'edit') {
+                                    _editPlayerDialog(player);
+                                  } else if (value == 'delete') {
+                                    _confirmDelete(player);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'edit',
+                                    child: Text('Uredi'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('Obriši'),
+                                  ),
+                                ],
+                              ),
+                              isThreeLine: true,
+                              onTap: () => _openPlayerDetails(player),
+                            ),
+                          );
+                        },
                       ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Obriši'),
-                      ),
-                    ],
-                  ),
-                  isThreeLine: true,
-                  onTap: () => _openPlayerDetails(player),
-                ),
-              );
-            },
+              ),
+            ],
           );
         },
       ),
