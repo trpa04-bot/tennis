@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
+import 'archived_players_page.dart';
 import 'league_management_page.dart';
 import 'league_table_page.dart';
 import 'login_page.dart';
@@ -45,6 +46,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
   final List<Widget> pages = const [
     AdminWelcomePage(),
     PlayersPage(),
+    ArchivedPlayersPage(),
     MatchesPage(),
     LeagueTablePage(),
     SchedulePage(),
@@ -73,6 +75,11 @@ class _AdminHomePageState extends State<AdminHomePage> {
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people),
             label: 'Players',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.archive_outlined),
+            selectedIcon: Icon(Icons.archive),
+            label: 'Arhiva',
           ),
           NavigationDestination(
             icon: Icon(Icons.sports_tennis_outlined),
