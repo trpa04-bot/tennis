@@ -76,6 +76,156 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
         '${date.year}';
   }
 
+  List<int>? _parseScore(String score) {
+    final cleaned = score.trim().replaceAll(' ', '');
+    if (cleaned.isEmpty) return null;
+
+    final normalized = cleaned.replaceAll('-', ':').replaceAll('/', ':');
+    final parts = normalized.split(':');
+    if (parts.length != 2) return null;
+
+    final a = int.tryParse(parts[0]);
+    final b = int.tryParse(parts[1]);
+    if (a == null || b == null) return null;
+
+    return [a, b];
+  }
+
+  bool _samePair(MatchModel a, MatchModel b) {
+    if (a.player1Id.isNotEmpty &&
+        a.player2Id.isNotEmpty &&
+        b.player1Id.isNotEmpty &&
+        b.player2Id.isNotEmpty) {
+      final aIds = {a.player1Id, a.player2Id};
+      return aIds.contains(b.player1Id) && aIds.contains(b.player2Id);
+    }
+
+    final a1 = a.player1Name.trim().toLowerCase();
+    final a2 = a.player2Name.trim().toLowerCase();
+    final b1 = b.player1Name.trim().toLowerCase();
+    final b2 = b.player2Name.trim().toLowerCase();
+
+    return (a1 == b1 && a2 == b2) || (a1 == b2 && a2 == b1);
+  }
+
+  bool? _didPlayer1WinMatch(MatchModel match) {
+    if (match.winnerId.isNotEmpty &&
+        match.player1Id.isNotEmpty &&
+        match.player2Id.isNotEmpty) {
+      if (match.winnerId == match.player1Id) return true;
+      if (match.winnerId == match.player2Id) return false;
+    }
+
+    int p1Sets = 0;
+    int p2Sets = 0;
+
+    final set1 = _parseScore(match.set1);
+    final set2 = _parseScore(match.set2);
+    final stb = _parseScore(match.superTieBreak);
+
+    for (final set in [set1, set2, stb]) {
+      if (set == null) continue;
+      if (set[0] > set[1]) p1Sets++;
+      if (set[1] > set[0]) p2Sets++;
+    }
+
+    if (p1Sets == p2Sets) return null;
+    return p1Sets > p2Sets;
+  }
+
+  bool? _didSelectedP1Win(MatchModel selectedMatch, MatchModel historicalMatch) {
+    final selectedP1Id = selectedMatch.player1Id;
+    final selectedP1Name = selectedMatch.player1Name.trim().toLowerCase();
+
+    bool selectedP1IsPlayer1InHistorical;
+
+    if (selectedP1Id.isNotEmpty &&
+        historicalMatch.player1Id.isNotEmpty &&
+        historicalMatch.player2Id.isNotEmpty) {
+      if (historicalMatch.player1Id == selectedP1Id) {
+        selectedP1IsPlayer1InHistorical = true;
+      } else if (historicalMatch.player2Id == selectedP1Id) {
+        selectedP1IsPlayer1InHistorical = false;
+      } else {
+        return null;
+      }
+    } else {
+      final h1 = historicalMatch.player1Name.trim().toLowerCase();
+      final h2 = historicalMatch.player2Name.trim().toLowerCase();
+      if (h1 == selectedP1Name) {
+        selectedP1IsPlayer1InHistorical = true;
+      } else if (h2 == selectedP1Name) {
+        selectedP1IsPlayer1InHistorical = false;
+      } else {
+        return null;
+      }
+    }
+
+    final player1Won = _didPlayer1WinMatch(historicalMatch);
+    if (player1Won == null) return null;
+
+    return selectedP1IsPlayer1InHistorical ? player1Won : !player1Won;
+  }
+
+  void _showHeadToHeadDialog(MatchModel selectedMatch, List<MatchModel> allMatches) {
+    final pairMatches = allMatches
+        .where((m) => _samePair(selectedMatch, m))
+        .toList()
+      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+
+    int p1Wins = 0;
+    int p2Wins = 0;
+    int seasonP1Wins = 0;
+    int seasonP2Wins = 0;
+
+    for (final historical in pairMatches) {
+      final selectedP1Won = _didSelectedP1Win(selectedMatch, historical);
+      if (selectedP1Won == null) continue;
+
+      if (selectedP1Won) {
+        p1Wins++;
+        if (historical.season == selectedSeason) seasonP1Wins++;
+      } else {
+        p2Wins++;
+        if (historical.season == selectedSeason) seasonP2Wins++;
+      }
+    }
+
+    final resolvedMatches = p1Wins + p2Wins;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Head to Head'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('${selectedMatch.player1Name} vs ${selectedMatch.player2Name}'),
+                const SizedBox(height: 10),
+                Text('Ukupno mečeva: $resolvedMatches'),
+                Text('${selectedMatch.player1Name}: $p1Wins pobjeda'),
+                Text('${selectedMatch.player2Name}: $p2Wins pobjeda'),
+                const SizedBox(height: 8),
+                Text('Omjer: $p1Wins : $p2Wins'),
+                const SizedBox(height: 12),
+                Text('Sezona $selectedSeason: $seasonP1Wins : $seasonP2Wins'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Zatvori'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Player>>(
@@ -170,6 +320,10 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
 
                                 return Card(
                                   child: ListTile(
+                                    onTap: () => _showHeadToHeadDialog(
+                                      match,
+                                      allMatches,
+                                    ),
                                     title: Text('${match.player1Name} vs ${match.player2Name}'),
                                     subtitle: Text(
                                       '${_buildScore(match)}\n${_formatDate(match.playedAt)}',
