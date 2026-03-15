@@ -10,6 +10,7 @@ class FirestoreService {
 
   static const double _eloK = 24;
   static const double _straightSetsMultiplier = 1.15;
+  static const double _maxUpsetBonus = 0.5;
 
   CollectionReference get players => _db.collection('players');
   CollectionReference get matches => _db.collection('matches');
@@ -372,7 +373,14 @@ class FirestoreService {
           (sets.player1SetsWon == 2 && sets.player2SetsWon == 0) ||
           (sets.player2SetsWon == 2 && sets.player1SetsWon == 0);
 
-      final multiplier = straightSets ? _straightSetsMultiplier : 1.0;
+      final upsetMultiplier = _calculateUpsetMultiplier(
+        player1Rating: p1.rating,
+        player2Rating: p2.rating,
+        player1Won: p1Won,
+      );
+
+      final multiplier =
+          (straightSets ? _straightSetsMultiplier : 1.0) * upsetMultiplier;
 
       final deltaP1 = (_eloK * (scoreP1 - expectedP1) * multiplier).round();
       final deltaP2 = (_eloK * (scoreP2 - expectedP2) * multiplier).round();
@@ -380,6 +388,25 @@ class FirestoreService {
       tx.update(p1Ref, {'rating': p1.rating + deltaP1});
       tx.update(p2Ref, {'rating': p2.rating + deltaP2});
     });
+  }
+
+  double _calculateUpsetMultiplier({
+    required int player1Rating,
+    required int player2Rating,
+    required bool player1Won,
+  }) {
+    final p1IsUnderdog = player1Rating < player2Rating;
+    final p2IsUnderdog = player2Rating < player1Rating;
+
+    final isUpset = (player1Won && p1IsUnderdog) || (!player1Won && p2IsUnderdog);
+
+    if (!isUpset) return 1.0;
+
+    final ratingGap = (player1Rating - player2Rating).abs().toDouble();
+
+    // Bonus raste s razlikom ratinga, do max +50%.
+    final bonus = (ratingGap / 800).clamp(0.0, _maxUpsetBonus);
+    return 1.0 + bonus;
   }
 
   _SetWins _parseSetWins(MatchModel match) {
