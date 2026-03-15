@@ -226,13 +226,13 @@ class ViewerWelcomePage extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(7),
+        padding: const EdgeInsets.all(5),
         child: ClipOval(
           child: Image.asset(
             'assets/tk_jogi_logo.jpeg',
             fit: BoxFit.cover,
-            width: 220,
-            height: 220,
+            width: 230,
+            height: 230,
           ),
         ),
       ),
