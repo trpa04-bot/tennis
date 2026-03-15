@@ -77,6 +77,9 @@ class PlayerDetailsPage extends StatelessWidget {
                 matches: matches,
               );
 
+              final playerAchievements =
+                  playersById[playerId]?.achievements ?? <String>[];
+
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -84,6 +87,8 @@ class PlayerDetailsPage extends StatelessWidget {
                     _heroCard(context, stats),
                     const SizedBox(height: 16),
                     _atpStyleCard(context, stats, matches),
+                    const SizedBox(height: 16),
+                    _achievementsCard(context, playerAchievements),
                     const SizedBox(height: 16),
                     _mainStatsGrid(stats),
                     const SizedBox(height: 16),
@@ -432,6 +437,97 @@ class PlayerDetailsPage extends StatelessWidget {
     );
   }
 
+  Widget _achievementsCard(BuildContext context, List<String> earned) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('🏅', style: TextStyle(fontSize: 20)),
+                const SizedBox(width: 8),
+                Text(
+                  'Achievements',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: _kAchievements.map((def) {
+                return _achievementBadge(
+                  context,
+                  def,
+                  earned.contains(def.id),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _achievementBadge(
+    BuildContext context,
+    _AchievementDef def,
+    bool earned,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 130,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: earned
+            ? scheme.primaryContainer.withValues(alpha: 0.5)
+            : Colors.grey.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: earned
+              ? scheme.primary.withValues(alpha: 0.5)
+              : Colors.grey.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Opacity(
+            opacity: earned ? 1.0 : 0.3,
+            child: Text(def.emoji, style: const TextStyle(fontSize: 28)),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            def.label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: earned ? scheme.primary : Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            def.desc,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10,
+              color: earned
+                  ? scheme.onSurface.withValues(alpha: 0.7)
+                  : Colors.grey.withValues(alpha: 0.6),
+            ),
+          ),
+          if (!earned) ...[const SizedBox(height: 4), const Icon(Icons.lock_outline, size: 12, color: Colors.grey)],
+        ],
+      ),
+    );
+  }
+
   String _opponentName(
     MatchModel match,
     bool isP1,
@@ -762,3 +858,20 @@ class _GameScore {
     required this.player2Games,
   });
 }
+
+class _AchievementDef {
+  final String id;
+  final String emoji;
+  final String label;
+  final String desc;
+
+  const _AchievementDef(this.id, this.emoji, this.label, this.desc);
+}
+
+const _kAchievements = [
+  _AchievementDef('first_win', '🏆', 'First Win', 'First ever win'),
+  _AchievementDef('win_streak_3', '🔥', '3 in a Row', '3 consecutive wins'),
+  _AchievementDef('comeback_king', '💪', 'Comeback King', 'Won after losing set 1'),
+  _AchievementDef('perfect_match', '🎯', 'Perfect Match', '2:0 victory'),
+  _AchievementDef('tiebreak_hero', '⚡', 'Tie-Break Hero', 'Won in super tie-break'),
+];

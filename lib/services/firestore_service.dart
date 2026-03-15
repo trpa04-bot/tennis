@@ -176,6 +176,7 @@ class FirestoreService {
     debugPrint('Saving match...');
     await matches.add(match.toMap());
     await _applyEloForMatch(match);
+    await _checkAndGrantAchievements(match);
     debugPrint('Match saved successfully');
   }
 
@@ -656,6 +657,94 @@ class FirestoreService {
         final above = currentTable[i - 1];
         row.pointsToNext = max(0, (above.points - row.points) + 1);
       }
+    }
+  }
+
+  Future<void> _checkAndGrantAchievements(MatchModel match) async {
+    if (match.player1Id.isEmpty || match.player2Id.isEmpty) return;
+
+    final sets = _parseSetWins(match);
+    final winnerId = _resolveWinnerId(match, sets);
+    if (winnerId.isEmpty) return;
+
+    final winnerIsP1 = winnerId == match.player1Id;
+    final winnerSets = winnerIsP1 ? sets.player1SetsWon : sets.player2SetsWon;
+    final loserSets = winnerIsP1 ? sets.player2SetsWon : sets.player1SetsWon;
+
+    final set1 = _parseScore(match.set1);
+    final stb = _parseScore(match.superTieBreak);
+
+    final toGrant = <String>[];
+
+    // perfect_match: 2:0 victory
+    if (winnerSets == 2 && loserSets == 0) {
+      toGrant.add('perfect_match');
+    }
+
+    // tiebreak_hero: won the super tie-break to win the match
+    if (stb != null) {
+      final winnerWonStb = winnerIsP1 ? stb[0] > stb[1] : stb[1] > stb[0];
+      if (winnerWonStb) {
+        toGrant.add('tiebreak_hero');
+      }
+    }
+
+    // comeback_king: lost set 1 but won the match
+    if (set1 != null) {
+      final winnerLostSet1 = winnerIsP1 ? set1[1] > set1[0] : set1[0] > set1[1];
+      if (winnerLostSet1) {
+        toGrant.add('comeback_king');
+      }
+    }
+
+    if (toGrant.isNotEmpty) {
+      await players.doc(winnerId).update({
+        'achievements': FieldValue.arrayUnion(toGrant),
+      });
+    }
+
+    await _checkCumulativeAchievements(winnerId);
+  }
+
+  Future<void> _checkCumulativeAchievements(String playerId) async {
+    final matchSnapshot = await matches.get();
+    final playerMatches = matchSnapshot.docs
+        .map((doc) {
+          final data = Map<String, dynamic>.from(doc.data() as Map);
+          return MatchModel.fromMap(data, id: doc.id);
+        })
+        .where((m) => m.player1Id == playerId || m.player2Id == playerId)
+        .toList()
+      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+
+    final toGrant = <String>[];
+
+    final wins = playerMatches.where((m) {
+      final s = _parseSetWins(m);
+      return _resolveWinnerId(m, s) == playerId;
+    }).length;
+
+    // first_win: at least one win ever
+    if (wins >= 1) {
+      toGrant.add('first_win');
+    }
+
+    // win_streak_3: last 3 matches all wins
+    if (playerMatches.length >= 3) {
+      final last3 = playerMatches.take(3).toList();
+      final allWins = last3.every((m) {
+        final s = _parseSetWins(m);
+        return _resolveWinnerId(m, s) == playerId;
+      });
+      if (allWins) {
+        toGrant.add('win_streak_3');
+      }
+    }
+
+    if (toGrant.isNotEmpty) {
+      await players.doc(playerId).update({
+        'achievements': FieldValue.arrayUnion(toGrant),
+      });
     }
   }
 
