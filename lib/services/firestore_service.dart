@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/player.dart';
@@ -5,6 +7,9 @@ import '../models/match_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  static const double _eloK = 24;
+  static const double _straightSetsMultiplier = 1.15;
 
   CollectionReference get players => _db.collection('players');
   CollectionReference get matches => _db.collection('matches');
@@ -21,10 +26,12 @@ class FirestoreService {
   }
 
   Future<void> addPlayer(Player player) async {
+    final normalizedLeague = _normalizeLeague(player.league);
+
     await players.add({
       'name': player.name,
-      'rating': player.rating,
-      'league': player.league,
+      'rating': _baseRatingForLeague(normalizedLeague),
+      'league': normalizedLeague,
     });
   }
 
@@ -33,10 +40,32 @@ class FirestoreService {
   }
 
   Future<void> updatePlayer(Player player) async {
-    await players.doc(player.id).update({
+    final id = player.id;
+    if (id == null || id.isEmpty) return;
+
+    final existingDoc = await players.doc(id).get();
+    if (!existingDoc.exists) return;
+
+    final existing = Player.fromMap(
+      Map<String, dynamic>.from(existingDoc.data() as Map),
+      id: existingDoc.id,
+    );
+
+    final oldLeague = _normalizeLeague(existing.league);
+    final newLeague = _normalizeLeague(player.league);
+
+    final updatedRating = oldLeague == newLeague
+        ? existing.rating
+        : _shiftRatingForLeagueChange(
+            currentRating: existing.rating,
+            fromLeague: oldLeague,
+            toLeague: newLeague,
+          );
+
+    await players.doc(id).update({
       'name': player.name,
-      'rating': player.rating,
-      'league': player.league,
+      'rating': updatedRating,
+      'league': newLeague,
     });
   }
 
@@ -44,8 +73,26 @@ class FirestoreService {
     required String playerId,
     required String newLeague,
   }) async {
+    final playerDoc = await players.doc(playerId).get();
+    if (!playerDoc.exists) return;
+
+    final player = Player.fromMap(
+      Map<String, dynamic>.from(playerDoc.data() as Map),
+      id: playerDoc.id,
+    );
+
+    final oldLeague = _normalizeLeague(player.league);
+    final targetLeague = _normalizeLeague(newLeague);
+
+    final shiftedRating = _shiftRatingForLeagueChange(
+      currentRating: player.rating,
+      fromLeague: oldLeague,
+      toLeague: targetLeague,
+    );
+
     await players.doc(playerId).update({
-      'league': newLeague,
+      'league': targetLeague,
+      'rating': shiftedRating,
     });
   }
 
@@ -63,6 +110,7 @@ class FirestoreService {
   Future<void> addMatch(MatchModel match) async {
     debugPrint('Saving match...');
     await matches.add(match.toMap());
+    await _applyEloForMatch(match);
     debugPrint('Match saved successfully');
   }
 
@@ -201,33 +249,192 @@ class FirestoreService {
     final batch = _db.batch();
 
     for (final row in relegatedFrom1) {
-      batch.update(players.doc(row.playerId), {'league': '2'});
+      batch.update(players.doc(row.playerId), {
+        'league': '2',
+        'rating': FieldValue.increment(-500),
+      });
     }
 
     for (final row in promotedFrom2) {
-      batch.update(players.doc(row.playerId), {'league': '1'});
+      batch.update(players.doc(row.playerId), {
+        'league': '1',
+        'rating': FieldValue.increment(500),
+      });
     }
 
     for (final row in relegatedFrom2) {
-      batch.update(players.doc(row.playerId), {'league': '3'});
+      batch.update(players.doc(row.playerId), {
+        'league': '3',
+        'rating': FieldValue.increment(-500),
+      });
     }
 
     for (final row in promotedFrom3) {
-      batch.update(players.doc(row.playerId), {'league': '2'});
+      batch.update(players.doc(row.playerId), {
+        'league': '2',
+        'rating': FieldValue.increment(500),
+      });
     }
 
     for (final row in relegatedFrom3) {
-      batch.update(players.doc(row.playerId), {'league': '4'});
+      batch.update(players.doc(row.playerId), {
+        'league': '4',
+        'rating': FieldValue.increment(-500),
+      });
     }
 
     for (final row in promotedFrom4) {
-      batch.update(players.doc(row.playerId), {'league': '3'});
+      batch.update(players.doc(row.playerId), {
+        'league': '3',
+        'rating': FieldValue.increment(500),
+      });
     }
 
     await batch.commit();
   }
 
   // HELPERS
+
+  String _normalizeLeague(String league) {
+    final value = league.trim().toLowerCase();
+
+    if (value == '1' || value == '1. liga') return '1';
+    if (value == '2' || value == '2. liga') return '2';
+    if (value == '3' || value == '3. liga') return '3';
+    if (value == '4' || value == '4. liga') return '4';
+
+    return league;
+  }
+
+  int _baseRatingForLeague(String league) {
+    switch (_normalizeLeague(league)) {
+      case '1':
+        return 2000;
+      case '2':
+        return 1500;
+      case '3':
+        return 1000;
+      case '4':
+        return 500;
+      default:
+        return 1000;
+    }
+  }
+
+  int _shiftRatingForLeagueChange({
+    required int currentRating,
+    required String fromLeague,
+    required String toLeague,
+  }) {
+    final fromBase = _baseRatingForLeague(fromLeague);
+    final toBase = _baseRatingForLeague(toLeague);
+    return currentRating + (toBase - fromBase);
+  }
+
+  Future<void> _applyEloForMatch(MatchModel match) async {
+    if (match.player1Id.isEmpty || match.player2Id.isEmpty) {
+      return;
+    }
+
+    await _db.runTransaction((tx) async {
+      final p1Ref = players.doc(match.player1Id);
+      final p2Ref = players.doc(match.player2Id);
+
+      final p1Doc = await tx.get(p1Ref);
+      final p2Doc = await tx.get(p2Ref);
+
+      if (!p1Doc.exists || !p2Doc.exists) return;
+
+      final p1 = Player.fromMap(
+        Map<String, dynamic>.from(p1Doc.data() as Map),
+        id: p1Doc.id,
+      );
+      final p2 = Player.fromMap(
+        Map<String, dynamic>.from(p2Doc.data() as Map),
+        id: p2Doc.id,
+      );
+
+      final sets = _parseSetWins(match);
+      final winnerId = _resolveWinnerId(match, sets);
+      if (winnerId.isEmpty) return;
+
+      final p1Won = winnerId == match.player1Id;
+      final p2Won = winnerId == match.player2Id;
+      if (!p1Won && !p2Won) return;
+
+      final expectedP1 = 1 / (1 + pow(10, (p2.rating - p1.rating) / 400));
+      final expectedP2 = 1 - expectedP1;
+
+      final scoreP1 = p1Won ? 1.0 : 0.0;
+      final scoreP2 = p2Won ? 1.0 : 0.0;
+
+      final straightSets =
+          (sets.player1SetsWon == 2 && sets.player2SetsWon == 0) ||
+          (sets.player2SetsWon == 2 && sets.player1SetsWon == 0);
+
+      final multiplier = straightSets ? _straightSetsMultiplier : 1.0;
+
+      final deltaP1 = (_eloK * (scoreP1 - expectedP1) * multiplier).round();
+      final deltaP2 = (_eloK * (scoreP2 - expectedP2) * multiplier).round();
+
+      tx.update(p1Ref, {'rating': p1.rating + deltaP1});
+      tx.update(p2Ref, {'rating': p2.rating + deltaP2});
+    });
+  }
+
+  _SetWins _parseSetWins(MatchModel match) {
+    int p1Sets = 0;
+    int p2Sets = 0;
+
+    final set1 = _parseScore(match.set1);
+    final set2 = _parseScore(match.set2);
+    final stb = _parseScore(match.superTieBreak);
+
+    if (set1 != null) {
+      if (set1[0] > set1[1]) p1Sets++;
+      if (set1[1] > set1[0]) p2Sets++;
+    }
+
+    if (set2 != null) {
+      if (set2[0] > set2[1]) p1Sets++;
+      if (set2[1] > set2[0]) p2Sets++;
+    }
+
+    if (stb != null) {
+      if (stb[0] > stb[1]) p1Sets++;
+      if (stb[1] > stb[0]) p2Sets++;
+    }
+
+    return _SetWins(player1SetsWon: p1Sets, player2SetsWon: p2Sets);
+  }
+
+  List<int>? _parseScore(String score) {
+    final cleaned = score.trim().replaceAll(' ', '');
+    if (cleaned.isEmpty) return null;
+
+    final normalized = cleaned.replaceAll('-', ':').replaceAll('/', ':');
+    final parts = normalized.split(':');
+    if (parts.length != 2) return null;
+
+    final a = int.tryParse(parts[0]);
+    final b = int.tryParse(parts[1]);
+    if (a == null || b == null) return null;
+
+    return [a, b];
+  }
+
+  String _resolveWinnerId(MatchModel match, _SetWins sets) {
+    if (match.winnerId.isNotEmpty) return match.winnerId;
+
+    if (sets.player1SetsWon > sets.player2SetsWon) {
+      return match.player1Id;
+    }
+    if (sets.player2SetsWon > sets.player1SetsWon) {
+      return match.player2Id;
+    }
+
+    return '';
+  }
 
   bool _matchBelongsToLeague({
     required MatchModel match,
@@ -366,6 +573,16 @@ class FirestoreService {
 
     return sorted;
   }
+}
+
+class _SetWins {
+  final int player1SetsWon;
+  final int player2SetsWon;
+
+  _SetWins({
+    required this.player1SetsWon,
+    required this.player2SetsWon,
+  });
 }
 
 class LeagueTableRow {
