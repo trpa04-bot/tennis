@@ -136,24 +136,29 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
                     );
                   }
 
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('#')),
-                        DataColumn(label: Text('Player')),
-                        DataColumn(label: Text('M')),
-                        DataColumn(label: Text('W')),
-                        DataColumn(label: Text('L')),
-                        DataColumn(label: Text('Sets')),
-                        DataColumn(label: Text('Set +/-')),
-                        DataColumn(label: Text('Games')),
-                        DataColumn(label: Text('Gem +/-')),
-                        DataColumn(label: Text('Pts')),
-                      ],
-                      rows: List.generate(
-                        table.length,
-                        (index) => _buildRow(index + 1, table[index]),
+                  return Scrollbar(
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columns: const [
+                            DataColumn(label: Text('#')),
+                            DataColumn(label: Text('Player')),
+                            DataColumn(label: Text('M')),
+                            DataColumn(label: Text('W')),
+                            DataColumn(label: Text('L')),
+                            DataColumn(label: Text('Sets')),
+                            DataColumn(label: Text('Set +/-')),
+                            DataColumn(label: Text('Games')),
+                            DataColumn(label: Text('Gem +/-')),
+                            DataColumn(label: Text('Pts')),
+                          ],
+                          rows: List.generate(
+                            table.length,
+                            (index) => _buildRow(index + 1, table[index]),
+                          ),
+                        ),
                       ),
                     ),
                   );
