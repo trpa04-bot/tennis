@@ -162,6 +162,8 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: DataTable(
+                          columnSpacing: 0,
+                          horizontalMargin: 12,
                           columns: const [
                             DataColumn(label: Text('#')),
                             DataColumn(label: Text('Player')),
