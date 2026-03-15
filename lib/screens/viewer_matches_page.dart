@@ -12,6 +12,7 @@ class ViewerMatchesPage extends StatefulWidget {
 
 class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
   final FirestoreService firestoreService = FirestoreService();
+  final List<String> leagues = const ['1', '2', '3', '4'];
 
   final List<String> seasons = const [
     'Winter 2026',
@@ -82,14 +83,17 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
       builder: (context, playersSnapshot) {
         final allPlayers = playersSnapshot.data ?? [];
 
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Matches'),
-            centerTitle: true,
-          ),
-          body: StreamBuilder<List<MatchModel>>(
-            stream: firestoreService.getMatches(),
-            builder: (context, matchesSnapshot) {
+        return DefaultTabController(
+          length: leagues.length,
+          initialIndex: leagues.indexOf(selectedLeague),
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Matches'),
+              centerTitle: true,
+            ),
+            body: StreamBuilder<List<MatchModel>>(
+              stream: firestoreService.getMatches(),
+              builder: (context, matchesSnapshot) {
               if (matchesSnapshot.connectionState == ConnectionState.waiting ||
                   playersSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
@@ -117,79 +121,69 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
               }).toList()
                 ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
 
-              return Column(
-                children: [
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Season: '),
-                      const SizedBox(width: 10),
-                      DropdownButton<String>(
-                        value: selectedSeason,
-                        items: seasons.map((season) {
-                          return DropdownMenuItem<String>(
-                            value: season,
-                            child: Text(season),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            selectedSeason = value;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('League: '),
-                      const SizedBox(width: 10),
-                      DropdownButton<String>(
-                        value: selectedLeague,
-                        items: const [
-                          DropdownMenuItem(value: '1', child: Text('1. liga')),
-                          DropdownMenuItem(value: '2', child: Text('2. liga')),
-                          DropdownMenuItem(value: '3', child: Text('3. liga')),
-                          DropdownMenuItem(value: '4', child: Text('4. liga')),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            selectedLeague = value;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: matches.isEmpty
-                        ? const Center(
-                            child: Text('Nema mečeva za odabranu ligu i sezonu.'),
-                          )
-                        : ListView.builder(
-                            itemCount: matches.length,
-                            itemBuilder: (context, index) {
-                              final match = matches[index];
+                return Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Season: '),
+                        const SizedBox(width: 10),
+                        DropdownButton<String>(
+                          value: selectedSeason,
+                          items: seasons.map((season) {
+                            return DropdownMenuItem<String>(
+                              value: season,
+                              child: Text(season),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() {
+                              selectedSeason = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    TabBar(
+                      tabs: leagues
+                          .map((league) => Tab(text: '$league. liga'))
+                          .toList(),
+                      onTap: (index) {
+                        setState(() {
+                          selectedLeague = leagues[index];
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: matches.isEmpty
+                          ? const Center(
+                              child: Text('Nema mečeva za odabranu ligu i sezonu.'),
+                            )
+                          : ListView.builder(
+                              itemCount: matches.length,
+                              itemBuilder: (context, index) {
+                                final match = matches[index];
 
-                              return Card(
-                                child: ListTile(
-                                  title: Text('${match.player1Name} vs ${match.player2Name}'),
-                                  subtitle: Text(
-                                    '${_buildScore(match)}\n${_formatDate(match.playedAt)}',
+                                return Card(
+                                  child: ListTile(
+                                    title: Text('${match.player1Name} vs ${match.player2Name}'),
+                                    subtitle: Text(
+                                      '${_buildScore(match)}\n${_formatDate(match.playedAt)}',
+                                    ),
+                                    isThreeLine: true,
                                   ),
-                                  isThreeLine: true,
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              );
-            },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         );
       },
