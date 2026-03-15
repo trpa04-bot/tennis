@@ -538,25 +538,23 @@ class _MatchesPageState extends State<MatchesPage> {
                                             color: Colors.green,
                                             borderRadius: BorderRadius.circular(8),
                                           ),
-                                          child: IconTheme(
-                                            data: const IconThemeData(
-                                              color: Colors.white,
-                                              size: 18,
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(Icons.workspace_premium),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  'Winner $winner',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(
+                                                Icons.emoji_events,
+                                                color: Colors.white,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Winner $winner',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
