@@ -548,7 +548,7 @@ class _MatchesPageState extends State<MatchesPage> {
                                               ),
                                               const SizedBox(width: 6),
                                               Text(
-                                                'Winner $winner',
+                                                '🏆 Winner $winner',
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontWeight: FontWeight.w600,
