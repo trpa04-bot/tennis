@@ -374,6 +374,25 @@ class _PlayersPageState extends State<PlayersPage> {
 
           return Column(
             children: [
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ArchivedPlayersPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.archive_outlined),
+                    label: const Text('Arhiva igrača'),
+                  ),
+                ),
+              ),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 10,
