@@ -23,16 +23,16 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
     Color? rowColor;
 
     if (position == 1) {
-      rowColor = Colors.amber.withOpacity(0.25); // 🥇 gold
+      rowColor = Colors.amber.withValues(alpha: 0.25); // 🥇 gold
     } else if (position == 2) {
-      rowColor = Colors.grey.withOpacity(0.25); // 🥈 silver
+      rowColor = Colors.grey.withValues(alpha: 0.25); // 🥈 silver
     } else if (position == 3) {
-      rowColor = Colors.brown.withOpacity(0.25); // 🥉 bronze
+      rowColor = Colors.brown.withValues(alpha: 0.25); // 🥉 bronze
     }
 
     return DataRow(
       color: rowColor != null
-          ? MaterialStatePropertyAll(rowColor)
+          ? WidgetStatePropertyAll(rowColor)
           : null,
       cells: [
         DataCell(Text(position.toString())),

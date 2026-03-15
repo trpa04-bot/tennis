@@ -306,7 +306,7 @@ class _AddMatchPageState extends State<AddMatchPage> {
 
                   await firestoreService.addMatch(match);
 
-                  if (!mounted) return;
+                  if (!context.mounted) return;
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

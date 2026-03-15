@@ -15,6 +15,7 @@ class _PlayersPageState extends State<PlayersPage> {
   String selectedLeagueTab = 'all';
 
     void _editPlayerDialog(Player player) {
+      final pageContext = context;
       final nameController = TextEditingController(text: player.name);
       final ratingController = TextEditingController(text: player.rating.toString());
       String selectedLeague = player.league;
@@ -40,7 +41,7 @@ class _PlayersPageState extends State<PlayersPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedLeague,
+                    initialValue: selectedLeague,
                     decoration: const InputDecoration(labelText: 'Liga'),
                     items: const [
                       DropdownMenuItem(value: '1', child: Text('1. liga')),
@@ -72,8 +73,9 @@ class _PlayersPageState extends State<PlayersPage> {
                     league: selectedLeague,
                   );
                   await firestoreService.updatePlayer(updatedPlayer);
-                  if (context.mounted) Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  if (!pageContext.mounted) return;
+                  Navigator.pop(pageContext);
+                  ScaffoldMessenger.of(pageContext).showSnackBar(
                     const SnackBar(content: Text('Igrač ažuriran')),
                   );
                 },

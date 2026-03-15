@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/player.dart';
 import '../models/match_model.dart';
 
@@ -60,9 +61,9 @@ class FirestoreService {
   }
 
   Future<void> addMatch(MatchModel match) async {
-    print("Saving match...");
+    debugPrint('Saving match...');
     await matches.add(match.toMap());
-    print("Match saved successfully");
+    debugPrint('Match saved successfully');
   }
 
   Future<void> updateMatch(MatchModel match) async {
@@ -280,7 +281,7 @@ class FirestoreService {
 
       // Super tie break
       final stbParts = match.superTieBreak.split(":");
-      int stb1 = stbParts.length > 0 ? int.tryParse(stbParts[0]) ?? 0 : 0;
+      int stb1 = stbParts.isNotEmpty ? int.tryParse(stbParts[0]) ?? 0 : 0;
       int stb2 = stbParts.length > 1 ? int.tryParse(stbParts[1]) ?? 0 : 0;
       p1Games += stb1;
       p2Games += stb2;

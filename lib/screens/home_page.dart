@@ -212,7 +212,7 @@ class ViewerWelcomePage extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.primary.withOpacity(0.35),
+            color: colorScheme.primary.withValues(alpha: 0.35),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -260,7 +260,7 @@ class ViewerWelcomePage extends StatelessWidget {
           gradient: LinearGradient(
             colors: [
               colorScheme.surface,
-              colorScheme.primaryContainer.withOpacity(0.28),
+              colorScheme.primaryContainer.withValues(alpha: 0.28),
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,

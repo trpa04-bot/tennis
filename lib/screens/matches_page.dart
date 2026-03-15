@@ -13,6 +13,7 @@ class MatchesPage extends StatefulWidget {
 
 class _MatchesPageState extends State<MatchesPage> {
     void _editMatchDialog(MatchModel match) {
+      final pageContext = context;
       final set1Controller = TextEditingController(text: match.set1);
       final set2Controller = TextEditingController(text: match.set2);
       final stbController = TextEditingController(text: match.superTieBreak);
@@ -86,8 +87,9 @@ class _MatchesPageState extends State<MatchesPage> {
                     winnerId: match.winnerId,
                   );
                   await firestoreService.updateMatch(updatedMatch);
-                  if (context.mounted) Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  if (!pageContext.mounted) return;
+                  Navigator.pop(pageContext);
+                  ScaffoldMessenger.of(pageContext).showSnackBar(
                     const SnackBar(content: Text('Meč ažuriran')),
                   );
                 },

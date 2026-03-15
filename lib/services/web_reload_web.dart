@@ -1,5 +1,5 @@
-import 'dart:html' as html;
+import 'package:web/web.dart' as web;
 
 Future<void> reloadPage() async {
-  html.window.location.reload();
+  web.window.location.reload();
 }
