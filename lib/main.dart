@@ -80,7 +80,7 @@ class _AppVersionWatcherState extends State<AppVersionWatcher> {
   Future<void> _initVersionWatcher() async {
     _initialVersion = await _fetchVersion();
     _timer = Timer.periodic(
-      const Duration(seconds: 45),
+      const Duration(seconds: 30),
       (_) => _checkForUpdate(),
     );
   }
