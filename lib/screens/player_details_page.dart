@@ -356,6 +356,25 @@ class PlayerDetailsPage extends StatelessWidget {
       p2Sets++;
     }
 
+    final stb = _parseScore(match.superTieBreak);
+    if (p1Sets == p2Sets) {
+      if (stb == null) {
+        return _ParsedMatch.invalid();
+      }
+
+      if (stb[0] > stb[1]) {
+        p1Sets++;
+      } else if (stb[1] > stb[0]) {
+        p2Sets++;
+      } else {
+        return _ParsedMatch.invalid();
+      }
+    }
+
+    if (p1Sets == p2Sets) {
+      return _ParsedMatch.invalid();
+    }
+
     return _ParsedMatch(
       isValid: true,
       player1SetsWon: p1Sets,
@@ -427,41 +446,49 @@ class _PlayerStats {
     int gamesLost = 0;
 
     for (final match in matches) {
-      final isP1 = match.player1Id == playerId ||
-          match.player1Name == playerName;
+      final isP1 = (match.player1Id.isNotEmpty || match.player2Id.isNotEmpty)
+          ? match.player1Id == playerId
+          : match.player1Name == playerName;
 
-      final parsed = _ParsedMatch(
-        isValid: true,
-        player1SetsWon: 0,
-        player2SetsWon: 0,
-      );
+      final parsed = _parseMatchFromModel(match);
+      if (!parsed.isValid) {
+        continue;
+      }
 
       played++;
 
-      if (match.winnerId == playerId) {
+      final didWin = _didPlayerWinMatch(
+        match: match,
+        playerId: playerId,
+        isP1: isP1,
+        parsed: parsed,
+      );
+
+      if (didWin) {
         wins++;
       } else {
         losses++;
       }
 
-      setsWon += parsed.player1SetsWon;
-      setsLost += parsed.player2SetsWon;
+      final playerSetsWon = isP1 ? parsed.player1SetsWon : parsed.player2SetsWon;
+      final playerSetsLost = isP1 ? parsed.player2SetsWon : parsed.player1SetsWon;
+      setsWon += playerSetsWon;
+      setsLost += playerSetsLost;
 
-      if (parsed.player1SetsWon == 2 && parsed.player2SetsWon == 0) {
-        points += 3;
-      } else if (parsed.player1SetsWon == 2 && parsed.player2SetsWon == 1) {
-        points += 2;
-      } else if (parsed.player1SetsWon == 1 && parsed.player2SetsWon == 2) {
+      if (didWin) {
+        points += (playerSetsWon == 2 && playerSetsLost == 0) ? 3 : 2;
+      } else if (playerSetsWon == 1 && playerSetsLost == 2) {
         points += 1;
       }
 
-      if (isP1) {
-        gamesWon += parsed.player1SetsWon;
-        gamesLost += parsed.player2SetsWon;
-      } else {
-        gamesWon += parsed.player2SetsWon;
-        gamesLost += parsed.player1SetsWon;
-      }
+      final score = _parseGamesFromMatch(match);
+      gamesWon += isP1 ? score.player1Games : score.player2Games;
+      gamesLost += isP1 ? score.player2Games : score.player1Games;
+
+      // Super tie-break je set odlučivanja, ne ulazi u game statistiku.
+      // Zato je games obračun samo iz set1 i set2.
+      // (Namjerno bez super tie-break poena.)
+
     }
 
     return _PlayerStats(
@@ -475,4 +502,107 @@ class _PlayerStats {
       gamesLost: gamesLost,
     );
   }
+
+  static _ParsedMatch _parseMatchFromModel(MatchModel match) {
+    final set1 = _parseScoreStatic(match.set1);
+    final set2 = _parseScoreStatic(match.set2);
+
+    if (set1 == null || set2 == null) {
+      return _ParsedMatch.invalid();
+    }
+
+    int p1Sets = 0;
+    int p2Sets = 0;
+
+    if (set1[0] > set1[1]) {
+      p1Sets++;
+    } else if (set1[1] > set1[0]) {
+      p2Sets++;
+    }
+
+    if (set2[0] > set2[1]) {
+      p1Sets++;
+    } else if (set2[1] > set2[0]) {
+      p2Sets++;
+    }
+
+    if (p1Sets == p2Sets) {
+      final stb = _parseScoreStatic(match.superTieBreak);
+      if (stb == null) return _ParsedMatch.invalid();
+
+      if (stb[0] > stb[1]) {
+        p1Sets++;
+      } else if (stb[1] > stb[0]) {
+        p2Sets++;
+      } else {
+        return _ParsedMatch.invalid();
+      }
+    }
+
+    if (p1Sets == p2Sets) {
+      return _ParsedMatch.invalid();
+    }
+
+    return _ParsedMatch(
+      isValid: true,
+      player1SetsWon: p1Sets,
+      player2SetsWon: p2Sets,
+    );
+  }
+
+  static bool _didPlayerWinMatch({
+    required MatchModel match,
+    required String playerId,
+    required bool isP1,
+    required _ParsedMatch parsed,
+  }) {
+    if (match.winnerId.isNotEmpty && playerId.isNotEmpty) {
+      return match.winnerId == playerId;
+    }
+
+    return isP1
+        ? parsed.player1SetsWon > parsed.player2SetsWon
+        : parsed.player2SetsWon > parsed.player1SetsWon;
+  }
+
+  static _GameScore _parseGamesFromMatch(MatchModel match) {
+    int p1Games = 0;
+    int p2Games = 0;
+
+    for (final raw in [match.set1, match.set2]) {
+      final set = _parseScoreStatic(raw);
+      if (set == null) continue;
+      p1Games += set[0];
+      p2Games += set[1];
+    }
+
+    return _GameScore(player1Games: p1Games, player2Games: p2Games);
+  }
+
+  static List<int>? _parseScoreStatic(String score) {
+    final cleaned = score.trim().replaceAll(' ', '');
+    if (cleaned.isEmpty) return null;
+
+    final normalized = cleaned.replaceAll('-', ':').replaceAll('/', ':');
+    final parts = normalized.split(':');
+
+    if (parts.length != 2) return null;
+
+    final a = int.tryParse(parts[0]);
+    final b = int.tryParse(parts[1]);
+
+    if (a == null || b == null) return null;
+
+    return [a, b];
+  }
+}
+
+class _GameScore {
+  final int player1Games;
+  final int player2Games;
+
+  _GameScore({
+    required this.player1Games,
+    required this.player2Games,
+  });
 }
