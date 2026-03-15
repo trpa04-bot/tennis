@@ -83,6 +83,8 @@ class PlayerDetailsPage extends StatelessWidget {
                   children: [
                     _heroCard(context, stats),
                     const SizedBox(height: 16),
+                    _atpStyleCard(context, stats, matches),
+                    const SizedBox(height: 16),
                     _mainStatsGrid(stats),
                     const SizedBox(height: 16),
                     _recentMatchesCard(matches, playersById),
@@ -201,6 +203,160 @@ class PlayerDetailsPage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _atpStyleCard(
+    BuildContext context,
+    _PlayerStats stats,
+    List<MatchModel> matches,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    final recent = matches.take(5).toList();
+
+    final recentForm = recent
+        .map((m) => _didPlayerWin(m) ? 'W' : 'L')
+        .toList();
+
+    final winRate = stats.played == 0 ? 0.0 : stats.wins / stats.played;
+    final setDenominator = (stats.setsWon + stats.setsLost).toDouble();
+    final setRate = setDenominator == 0 ? 0.0 : stats.setsWon / setDenominator;
+    final gameDenominator = (stats.gamesWon + stats.gamesLost).toDouble();
+    final gameRate = gameDenominator == 0 ? 0.0 : stats.gamesWon / gameDenominator;
+
+    return Card(
+      elevation: 3,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: [
+              scheme.primaryContainer.withValues(alpha: 0.55),
+              scheme.surface,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.emoji_events_outlined),
+                const SizedBox(width: 8),
+                Text(
+                  'ATP-style Performance',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _atpChip(
+                  context,
+                  title: 'Win Rate',
+                  value: '${(winRate * 100).toStringAsFixed(1)}%',
+                ),
+                _atpChip(
+                  context,
+                  title: 'Set Diff',
+                  value: '${stats.setsWon - stats.setsLost}',
+                ),
+                _atpChip(
+                  context,
+                  title: 'Game Diff',
+                  value: '${stats.gamesWon - stats.gamesLost}',
+                ),
+                _atpChip(
+                  context,
+                  title: 'Form (5)',
+                  value: recentForm.isEmpty ? '-' : recentForm.join(' '),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _performanceBar(
+              context,
+              label: 'Match dominance',
+              value: winRate,
+            ),
+            const SizedBox(height: 10),
+            _performanceBar(
+              context,
+              label: 'Set control',
+              value: setRate,
+            ),
+            const SizedBox(height: 10),
+            _performanceBar(
+              context,
+              label: 'Game control',
+              value: gameRate,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _atpChip(
+    BuildContext context, {
+    required String title,
+    required String value,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _performanceBar(
+    BuildContext context, {
+    required String label,
+    required double value,
+  }) {
+    final safeValue = value.clamp(0.0, 1.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: LinearProgressIndicator(
+            value: safeValue,
+            minHeight: 10,
+          ),
+        ),
+      ],
     );
   }
 
