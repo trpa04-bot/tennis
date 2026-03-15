@@ -194,8 +194,48 @@ class AdminWelcomePage extends StatelessWidget {
 class ViewerWelcomePage extends StatelessWidget {
   const ViewerWelcomePage({super.key});
 
+  Widget _viewerLogo(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: 110,
+      height: 110,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary,
+            colorScheme.secondary,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withOpacity(0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(5),
+        child: ClipOval(
+          child: Image.asset(
+            'assets/images/tk_jogi_logo.png',
+            fit: BoxFit.cover,
+            width: 100,
+            height: 100,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('TK JOGI'),
@@ -215,65 +255,64 @@ class ViewerWelcomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Card(
-          elevation: 4,
-          margin: const EdgeInsets.all(24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.surface,
+              colorScheme.primaryContainer.withOpacity(0.28),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(30),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-
-                Icon(
-                  Icons.sports_tennis,
-                  size: 70,
-                ),
-
-                SizedBox(height: 20),
-
-                Text(
-                  'Dobrodošli u aplikaciju',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey,
+        ),
+        child: Center(
+          child: Card(
+            elevation: 8,
+            margin: const EdgeInsets.all(20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _viewerLogo(context),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Dobrodošli',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-
-                SizedBox(height: 6),
-
-                Text(
-                  'TK JOGI',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
+                  const SizedBox(height: 6),
+                  Text(
+                    'TK JOGI',
+                    style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.onSurface,
+                    ),
                   ),
-                ),
-
-                SizedBox(height: 10),
-
-                Text(
-                  'Teniska liga Zagreb',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
+                  const SizedBox(height: 8),
+                  Text(
+                    'Teniska liga Zagreb',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-
-                SizedBox(height: 20),
-
-                Divider(),
-
-                SizedBox(height: 10),
-
-                Text(
-                  'Pregledaj igrače, mečeve i tablicu lige.',
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  const SizedBox(height: 20),
+                  Divider(color: colorScheme.outlineVariant),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Pregledaj igrače, mečeve i tablicu lige.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
