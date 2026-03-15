@@ -11,6 +11,7 @@ class FirestoreService {
   static const double _eloK = 24;
   static const double _straightSetsMultiplier = 1.15;
   static const double _maxUpsetBonus = 0.5;
+  static const int _maxRatingDeltaPerMatch = 35;
 
   CollectionReference get players => _db.collection('players');
   CollectionReference get matches => _db.collection('matches');
@@ -382,8 +383,17 @@ class FirestoreService {
       final multiplier =
           (straightSets ? _straightSetsMultiplier : 1.0) * upsetMultiplier;
 
-      final deltaP1 = (_eloK * (scoreP1 - expectedP1) * multiplier).round();
-      final deltaP2 = (_eloK * (scoreP2 - expectedP2) * multiplier).round();
+      final rawDeltaP1 = (_eloK * (scoreP1 - expectedP1) * multiplier).round();
+      final rawDeltaP2 = (_eloK * (scoreP2 - expectedP2) * multiplier).round();
+
+      final deltaP1 = rawDeltaP1.clamp(
+        -_maxRatingDeltaPerMatch,
+        _maxRatingDeltaPerMatch,
+      );
+      final deltaP2 = rawDeltaP2.clamp(
+        -_maxRatingDeltaPerMatch,
+        _maxRatingDeltaPerMatch,
+      );
 
       tx.update(p1Ref, {'rating': p1.rating + deltaP1});
       tx.update(p2Ref, {'rating': p2.rating + deltaP2});
