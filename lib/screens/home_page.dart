@@ -198,8 +198,8 @@ class ViewerWelcomePage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      width: 160,
-      height: 160,
+      width: 240,
+      height: 240,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
@@ -219,13 +219,13 @@ class ViewerWelcomePage extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(7),
+        padding: const EdgeInsets.all(10),
         child: ClipOval(
           child: Image.asset(
             'assets/tk_jogi_logo.jpeg',
             fit: BoxFit.cover,
-            width: 146,
-            height: 146,
+            width: 220,
+            height: 220,
           ),
         ),
       ),
