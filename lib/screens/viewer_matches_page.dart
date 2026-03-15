@@ -382,27 +382,32 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                               horizontal: 8,
                                               vertical: 4,
                                             ),
+                                            constraints: const BoxConstraints(
+                                              minHeight: 32,
+                                            ),
                                             decoration: BoxDecoration(
                                               color: Colors.green,
                                               borderRadius: BorderRadius.circular(8),
                                             ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.emoji_events,
-                                                  size: 16,
-                                                  color: Colors.white,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  'Winner $winner',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.w600,
+                                            child: IconTheme(
+                                              data: const IconThemeData(
+                                                color: Colors.white,
+                                                size: 18,
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.workspace_premium),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    'Winner $winner',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
                                                   ),
-                                                ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         ],
