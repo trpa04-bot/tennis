@@ -71,6 +71,8 @@ class _PlayersPageState extends State<PlayersPage> {
                     name: name,
                     rating: rating,
                     league: selectedLeague,
+                    frozen: player.frozen,
+                    archived: player.archived,
                   );
                   await firestoreService.updatePlayer(updatedPlayer);
                   if (!pageContext.mounted) return;
@@ -191,6 +193,39 @@ class _PlayersPageState extends State<PlayersPage> {
     );
   }
 
+  Future<void> _freezePlayer(Player player) async {
+    if (player.id == null || player.id!.isEmpty) return;
+
+    await firestoreService.freezePlayer(player.id!);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${player.name} je zamrznut.')),
+    );
+  }
+
+  Future<void> _unfreezePlayer(Player player) async {
+    if (player.id == null || player.id!.isEmpty) return;
+
+    await firestoreService.unfreezePlayer(player.id!);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${player.name} je odmrznut.')),
+    );
+  }
+
+  Future<void> _archivePlayer(Player player) async {
+    if (player.id == null || player.id!.isEmpty) return;
+
+    await firestoreService.archivePlayer(player.id!);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${player.name} je arhiviran.')),
+    );
+  }
+
   void _openPlayerDetails(Player player) {
     if (player.id == null || player.id!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -300,12 +335,19 @@ class _PlayersPageState extends State<PlayersPage> {
             );
           }
 
-          final players = snapshot.data ?? [];
-          final filteredPlayers = selectedLeagueTab == 'all'
+            final players = (snapshot.data ?? [])
+              .where((p) => !p.archived)
+              .toList();
+
+            final filteredPlayers = selectedLeagueTab == 'all'
               ? players
               : players
-                    .where((p) => _normalizeLeague(p.league) == selectedLeagueTab)
-                    .toList();
+                .where(
+                  (p) =>
+                    !p.frozen &&
+                    _normalizeLeague(p.league) == selectedLeagueTab,
+                )
+                .toList();
 
           filteredPlayers.sort((a, b) => a.name.compareTo(b.name));
 
@@ -352,7 +394,7 @@ class _PlayersPageState extends State<PlayersPage> {
                               ),
                               title: Text(player.name),
                               subtitle: Text(
-                                '${_leagueLabel(player.league)} • Rating ${player.rating}',
+                                '${_leagueLabel(player.league)} • Rating ${player.rating}${player.frozen ? ' • Zamrznut' : ''}',
                               ),
                               trailing: PopupMenuButton<String>(
                                 onSelected: (value) {
@@ -360,12 +402,26 @@ class _PlayersPageState extends State<PlayersPage> {
                                     _editPlayerDialog(player);
                                   } else if (value == 'delete') {
                                     _confirmDelete(player);
+                                  } else if (value == 'freeze') {
+                                    _freezePlayer(player);
+                                  } else if (value == 'unfreeze') {
+                                    _unfreezePlayer(player);
+                                  } else if (value == 'archive') {
+                                    _archivePlayer(player);
                                   }
                                 },
                                 itemBuilder: (context) => [
                                   const PopupMenuItem(
                                     value: 'edit',
                                     child: Text('Uredi'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: player.frozen ? 'unfreeze' : 'freeze',
+                                    child: Text(player.frozen ? 'Odmrzni' : 'Zamrzni'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'archive',
+                                    child: Text('Arhiviraj'),
                                   ),
                                   const PopupMenuItem(
                                     value: 'delete',

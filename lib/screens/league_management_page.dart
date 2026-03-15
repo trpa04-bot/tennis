@@ -41,7 +41,12 @@ class _LeagueManagementPageState extends State<LeagueManagementPage> {
 
   List<Player> _playersForLeague(List<Player> players, String league) {
     return players
-        .where((p) => _normalizeLeague(p.league) == league)
+        .where(
+          (p) =>
+              !p.frozen &&
+              !p.archived &&
+              _normalizeLeague(p.league) == league,
+        )
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
   }
@@ -52,6 +57,8 @@ class _LeagueManagementPageState extends State<LeagueManagementPage> {
       name: player.name,
       rating: player.rating,
       league: newLeague,
+      frozen: player.frozen,
+      archived: player.archived,
     );
 
     await firestoreService.updatePlayer(updatedPlayer);
@@ -89,7 +96,7 @@ class _LeagueManagementPageState extends State<LeagueManagementPage> {
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
-                    value: selectedLeague,
+                    initialValue: selectedLeague,
                     decoration: const InputDecoration(
                       labelText: 'Nova liga',
                     ),

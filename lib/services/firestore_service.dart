@@ -15,6 +15,7 @@ class FirestoreService {
 
   CollectionReference get players => _db.collection('players');
   CollectionReference get matches => _db.collection('matches');
+  CollectionReference get playerArchive => _db.collection('player_archive');
 
   // PLAYERS
 
@@ -34,6 +35,8 @@ class FirestoreService {
       'name': player.name,
       'rating': _baseRatingForLeague(normalizedLeague),
       'league': normalizedLeague,
+      'frozen': false,
+      'archived': false,
     });
   }
 
@@ -68,6 +71,8 @@ class FirestoreService {
       'name': player.name,
       'rating': updatedRating,
       'league': newLeague,
+      'frozen': player.frozen,
+      'archived': player.archived,
     });
   }
 
@@ -95,6 +100,64 @@ class FirestoreService {
     await players.doc(playerId).update({
       'league': targetLeague,
       'rating': shiftedRating,
+    });
+  }
+
+  Future<void> freezePlayer(String playerId) async {
+    await players.doc(playerId).update({
+      'frozen': true,
+      'frozenAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> unfreezePlayer(String playerId) async {
+    await players.doc(playerId).update({
+      'frozen': false,
+      'frozenAt': null,
+    });
+  }
+
+  Future<void> archivePlayer(String playerId) async {
+    final playerDoc = await players.doc(playerId).get();
+    if (!playerDoc.exists) return;
+
+    final player = Player.fromMap(
+      Map<String, dynamic>.from(playerDoc.data() as Map),
+      id: playerDoc.id,
+    );
+
+    final matchSnapshot = await matches.get();
+    final allMatches = matchSnapshot.docs
+        .map((doc) {
+          final data = Map<String, dynamic>.from(doc.data() as Map);
+          return MatchModel.fromMap(data, id: doc.id);
+        })
+        .toList();
+
+    final involvedMatches = allMatches.where((m) {
+      final hasIds = m.player1Id.isNotEmpty || m.player2Id.isNotEmpty;
+      if (hasIds) {
+        return m.player1Id == playerId || m.player2Id == playerId;
+      }
+
+      return m.player1Name == player.name || m.player2Name == player.name;
+    }).toList();
+
+    final stats = _buildArchivedStats(playerId, player.name, involvedMatches);
+
+    await playerArchive.add({
+      'playerId': player.id,
+      'name': player.name,
+      'league': player.league,
+      'rating': player.rating,
+      'archivedAt': FieldValue.serverTimestamp(),
+      'stats': stats,
+    });
+
+    await players.doc(playerId).update({
+      'archived': true,
+      'frozen': true,
+      'archivedAt': FieldValue.serverTimestamp(),
     });
   }
 
@@ -142,6 +205,7 @@ class FirestoreService {
               id: doc.id,
             ),
           )
+          .where((player) => !player.frozen && !player.archived)
           .toList();
 
       return _db.collection('matches').snapshots().map((matchSnapshot) {
@@ -191,6 +255,7 @@ class FirestoreService {
             id: doc.id,
           ),
         )
+        .where((player) => !player.frozen && !player.archived)
         .toList();
 
     final matchSnapshot = await _db.collection('matches').get();
@@ -471,6 +536,56 @@ class FirestoreService {
     }
 
     return '';
+  }
+
+  Map<String, dynamic> _buildArchivedStats(
+    String playerId,
+    String playerName,
+    List<MatchModel> matches,
+  ) {
+    int played = 0;
+    int wins = 0;
+    int losses = 0;
+
+    for (final match in matches) {
+      played++;
+      final winnerId = _resolveWinnerId(match, _parseSetWins(match));
+
+      if (winnerId.isNotEmpty) {
+        if (winnerId == playerId) {
+          wins++;
+        } else {
+          losses++;
+        }
+        continue;
+      }
+
+      final p1 = match.player1Name.trim().toLowerCase();
+      final player = playerName.trim().toLowerCase();
+      final didWinAsP1 = _didPlayer1Win(match);
+
+      if (didWinAsP1 == null) continue;
+      final isPlayer1 = p1 == player;
+
+      final didWin = isPlayer1 ? didWinAsP1 : !didWinAsP1;
+      if (didWin) {
+        wins++;
+      } else {
+        losses++;
+      }
+    }
+
+    return {
+      'played': played,
+      'wins': wins,
+      'losses': losses,
+    };
+  }
+
+  bool? _didPlayer1Win(MatchModel match) {
+    final sets = _parseSetWins(match);
+    if (sets.player1SetsWon == sets.player2SetsWon) return null;
+    return sets.player1SetsWon > sets.player2SetsWon;
   }
 
   bool _matchBelongsToLeague({

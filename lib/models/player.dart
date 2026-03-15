@@ -3,12 +3,16 @@ class Player {
   final String name;
   final int rating;
   final String league;
+  final bool frozen;
+  final bool archived;
 
   Player({
     this.id,
     required this.name,
     required this.rating,
     required this.league,
+    this.frozen = false,
+    this.archived = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -16,15 +20,23 @@ class Player {
       'name': name,
       'rating': rating,
       'league': league,
+      'frozen': frozen,
+      'archived': archived,
     };
   }
 
   factory Player.fromMap(Map<dynamic, dynamic> map, {String? id}) {
+    final frozenRaw = map['frozen'];
+    final archivedRaw = map['archived'];
+
     return Player(
       id: id,
       name: map['name']?.toString() ?? '',
       rating: int.tryParse(map['rating']?.toString() ?? '0') ?? 0,
       league: map['league']?.toString() ?? '',
+      frozen: frozenRaw == true || frozenRaw?.toString().toLowerCase() == 'true',
+      archived:
+          archivedRaw == true || archivedRaw?.toString().toLowerCase() == 'true',
     );
   }
 }

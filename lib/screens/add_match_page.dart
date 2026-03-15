@@ -172,7 +172,9 @@ class _AddMatchPageState extends State<AddMatchPage> {
             );
           }
 
-          final players = snapshot.data ?? [];
+            final players = (snapshot.data ?? [])
+              .where((p) => !p.frozen && !p.archived)
+              .toList();
 
           final player2Options = players
               .where((p) => p.id != player1Id)

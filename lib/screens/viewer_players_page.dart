@@ -103,12 +103,19 @@ class _ViewerPlayersPageState extends State<ViewerPlayersPage> {
             );
           }
 
-          final players = snapshot.data ?? [];
-          final filteredPlayers = selectedLeagueTab == 'all'
+            final players = (snapshot.data ?? [])
+              .where((p) => !p.archived)
+              .toList();
+
+            final filteredPlayers = selectedLeagueTab == 'all'
               ? players
               : players
-                    .where((p) => _normalizeLeague(p.league) == selectedLeagueTab)
-                    .toList();
+                .where(
+                  (p) =>
+                    !p.frozen &&
+                    _normalizeLeague(p.league) == selectedLeagueTab,
+                )
+                .toList();
 
           filteredPlayers.sort((a, b) => a.name.compareTo(b.name));
 
@@ -151,7 +158,7 @@ class _ViewerPlayersPageState extends State<ViewerPlayersPage> {
                               ),
                               title: Text(player.name),
                               subtitle: Text(
-                                '${_leagueLabel(player.league)} • Rating ${player.rating}',
+                                '${_leagueLabel(player.league)} • Rating ${player.rating}${player.frozen ? ' • Zamrznut' : ''}',
                               ),
                               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                               onTap: () {
