@@ -352,6 +352,8 @@ class _MatchesPageState extends State<MatchesPage> {
                 Text('Omjer: $p1Wins : $p2Wins'),
                 const SizedBox(height: 12),
                 Text('Sezona $selectedSeason: $seasonP1Wins : $seasonP2Wins'),
+                const SizedBox(height: 6),
+                Text('*all time* omjer: $p1Wins : $p2Wins'),
               ],
             ),
           ),
