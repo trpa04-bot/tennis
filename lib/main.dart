@@ -37,12 +37,25 @@ class TennisClubApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: colorScheme,
         scaffoldBackgroundColor: const Color(0xFFF7F8FA),
+        iconTheme: const IconThemeData(size: 36),
+        primaryIconTheme: const IconThemeData(size: 36),
+        appBarTheme: const AppBarTheme(
+          iconTheme: IconThemeData(size: 36),
+          actionsIconTheme: IconThemeData(size: 36),
+          toolbarHeight: 84,
+        ),
       ),
       builder: (context, child) {
         if (child == null) {
           return const SizedBox.shrink();
         }
-        return AppVersionWatcher(child: child);
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: const TextScaler.linear(1.5),
+          ),
+          child: AppVersionWatcher(child: child),
+        );
       },
       home: const AuthGatePage(),
     );
