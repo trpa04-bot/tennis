@@ -257,6 +257,9 @@ class FirestoreService {
       final p2 = table[match.player2Id];
       if (p1 == null || p2 == null) continue;
 
+      bool p1WonMatch = false;
+      bool p2WonMatch = false;
+
       p1.played++;
       p2.played++;
 
@@ -304,29 +307,53 @@ class FirestoreService {
         if (winnerId == p1.playerId) {
           p1.wins++;
           p2.losses++;
+          p1WonMatch = true;
         } else if (winnerId == p2.playerId) {
           p2.wins++;
           p1.losses++;
+          p2WonMatch = true;
         }
       } else {
         // Ako winnerId nije postavljen, odredi prema setovima
         if (p1SetsWon > p2SetsWon) {
           p1.wins++;
           p2.losses++;
+          p1WonMatch = true;
         } else if (p2SetsWon > p1SetsWon) {
           p2.wins++;
           p1.losses++;
+          p2WonMatch = true;
         }
       }
 
       // Bodovi (primjer: 3 za pobjedu, 1 za poraz)
-      if (p1.wins > 0) p1.points += 3;
-      if (p2.wins > 0) p2.points += 3;
-      if (p1.losses > 0) p1.points += 1;
-      if (p2.losses > 0) p2.points += 1;
+      if (p1WonMatch) {
+        p1.points += 3;
+        p2.points += 1;
+      } else if (p2WonMatch) {
+        p2.points += 3;
+        p1.points += 1;
+      }
     }
 
-    return table.values.toList();
+    final sorted = table.values.toList()
+      ..sort((a, b) {
+        final byPoints = b.points.compareTo(a.points);
+        if (byPoints != 0) return byPoints;
+
+        final byWins = b.wins.compareTo(a.wins);
+        if (byWins != 0) return byWins;
+
+        final bySetDiff = b.setDifference.compareTo(a.setDifference);
+        if (bySetDiff != 0) return bySetDiff;
+
+        final byGameDiff = b.gameDifference.compareTo(a.gameDifference);
+        if (byGameDiff != 0) return byGameDiff;
+
+        return a.playerName.compareTo(b.playerName);
+      });
+
+    return sorted;
   }
 }
 
