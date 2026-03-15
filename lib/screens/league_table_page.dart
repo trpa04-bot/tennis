@@ -38,6 +38,7 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
           : null,
       cells: [
         DataCell(Text(position.toString())),
+        DataCell(_movementCell(row.movement)),
         DataCell(Text(row.playerName)),
         DataCell(Text(row.played.toString())),
         DataCell(Text(row.wins.toString())),
@@ -47,8 +48,33 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
         DataCell(Text('${row.gamesWon}:${row.gamesLost}')),
         DataCell(Text(row.gameDifference.toString())),
         DataCell(Text(row.points.toString())),
+        DataCell(Text(position == 1 ? '-' : '${row.pointsToNext}')),
       ],
     );
+  }
+
+  Widget _movementCell(int movement) {
+    if (movement > 0) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.arrow_drop_up, color: Colors.blue),
+          Text('+$movement'),
+        ],
+      );
+    }
+
+    if (movement < 0) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.arrow_drop_down, color: Colors.lightBlue),
+          Text('$movement'),
+        ],
+      );
+    }
+
+    return const Text('0');
   }
 
   @override
@@ -153,6 +179,7 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
                               dataRowMaxHeight: _tableRowHeight,
                               columns: const [
                                 DataColumn(label: Text('#')),
+                                DataColumn(label: Text('Trend')),
                                 DataColumn(label: Text('Player')),
                                 DataColumn(label: Text('M')),
                                 DataColumn(label: Text('W')),
@@ -162,6 +189,7 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
                                 DataColumn(label: Text('Games')),
                                 DataColumn(label: Text('Gem +/-')),
                                 DataColumn(label: Text('Pts')),
+                                DataColumn(label: Text('Do #')), 
                               ],
                               rows: List.generate(
                                 table.length,

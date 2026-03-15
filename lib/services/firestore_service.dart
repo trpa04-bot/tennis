@@ -231,10 +231,27 @@ class FirestoreService {
           return true;
         }).toList();
 
-        return _buildLeagueTable(
+        filteredMatches.sort((a, b) => b.playedAt.compareTo(a.playedAt));
+
+        final previousMatches =
+            filteredMatches.length > 1 ? filteredMatches.sublist(1) : <MatchModel>[];
+
+        final currentTable = _buildLeagueTable(
           players: playersInLeague,
           matches: filteredMatches,
         );
+
+        final previousTable = _buildLeagueTable(
+          players: playersInLeague,
+          matches: previousMatches,
+        );
+
+        _applyMovementAndChaseData(
+          currentTable: currentTable,
+          previousTable: previousTable,
+        );
+
+        return currentTable;
       });
     });
   }
@@ -282,10 +299,27 @@ class FirestoreService {
       return true;
     }).toList();
 
-    return _buildLeagueTable(
+    filteredMatches.sort((a, b) => b.playedAt.compareTo(a.playedAt));
+
+    final previousMatches =
+        filteredMatches.length > 1 ? filteredMatches.sublist(1) : <MatchModel>[];
+
+    final currentTable = _buildLeagueTable(
       players: playersInLeague,
       matches: filteredMatches,
     );
+
+    final previousTable = _buildLeagueTable(
+      players: playersInLeague,
+      matches: previousMatches,
+    );
+
+    _applyMovementAndChaseData(
+      currentTable: currentTable,
+      previousTable: previousTable,
+    );
+
+    return currentTable;
   }
 
   // PROMOTIONS
@@ -601,6 +635,30 @@ class FirestoreService {
         leaguePlayerIds.contains(match.player2Id);
   }
 
+  void _applyMovementAndChaseData({
+    required List<LeagueTableRow> currentTable,
+    required List<LeagueTableRow> previousTable,
+  }) {
+    final previousPositionById = <String, int>{
+      for (int i = 0; i < previousTable.length; i++) previousTable[i].playerId: i + 1,
+    };
+
+    for (int i = 0; i < currentTable.length; i++) {
+      final row = currentTable[i];
+      final currentPos = i + 1;
+      final previousPos = previousPositionById[row.playerId];
+
+      row.movement = previousPos == null ? 0 : previousPos - currentPos;
+
+      if (i == 0) {
+        row.pointsToNext = 0;
+      } else {
+        final above = currentTable[i - 1];
+        row.pointsToNext = max(0, (above.points - row.points) + 1);
+      }
+    }
+  }
+
   List<LeagueTableRow> _buildLeagueTable({
     required List<Player> players,
     required List<MatchModel> matches,
@@ -750,6 +808,8 @@ class LeagueTableRow {
   int setsLost = 0;
   int gamesWon = 0;
   int gamesLost = 0;
+  int movement = 0;
+  int pointsToNext = 0;
 
   LeagueTableRow({
     required this.playerId,
