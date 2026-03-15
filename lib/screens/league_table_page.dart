@@ -10,6 +10,8 @@ class LeagueTablePage extends StatefulWidget {
 
 class _LeagueTablePageState extends State<LeagueTablePage> {
   final FirestoreService firestoreService = FirestoreService();
+  static const double _tableRowHeight = 56;
+  static const double _tableHeadingHeight = 56;
 
   String selectedLeague = '1';
   String selectedSeason = 'Winter 2026';
@@ -19,27 +21,7 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
     'Summer 2026',
   ];
 
-  DataCell _buildCell(String text, {bool showTopDivider = false}) {
-    return DataCell(
-      Container(
-        decoration: showTopDivider
-            ? const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.red, width: 2),
-                ),
-              )
-            : null,
-        padding: const EdgeInsets.only(top: 4),
-        child: Text(text),
-      ),
-    );
-  }
-
-  DataRow _buildRow(
-    int position,
-    LeagueTableRow row, {
-    bool showTopDivider = false,
-  }) {
+  DataRow _buildRow(int position, LeagueTableRow row) {
     Color? rowColor;
 
     if (position == 1) {
@@ -55,16 +37,16 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
           ? WidgetStatePropertyAll(rowColor)
           : null,
       cells: [
-        _buildCell(position.toString(), showTopDivider: showTopDivider),
-        _buildCell(row.playerName, showTopDivider: showTopDivider),
-        _buildCell(row.played.toString(), showTopDivider: showTopDivider),
-        _buildCell(row.wins.toString(), showTopDivider: showTopDivider),
-        _buildCell(row.losses.toString(), showTopDivider: showTopDivider),
-        _buildCell('${row.setsWon}:${row.setsLost}', showTopDivider: showTopDivider),
-        _buildCell(row.setDifference.toString(), showTopDivider: showTopDivider),
-        _buildCell('${row.gamesWon}:${row.gamesLost}', showTopDivider: showTopDivider),
-        _buildCell(row.gameDifference.toString(), showTopDivider: showTopDivider),
-        _buildCell(row.points.toString(), showTopDivider: showTopDivider),
+        DataCell(Text(position.toString())),
+        DataCell(Text(row.playerName)),
+        DataCell(Text(row.played.toString())),
+        DataCell(Text(row.wins.toString())),
+        DataCell(Text(row.losses.toString())),
+        DataCell(Text('${row.setsWon}:${row.setsLost}')),
+        DataCell(Text(row.setDifference.toString())),
+        DataCell(Text('${row.gamesWon}:${row.gamesLost}')),
+        DataCell(Text(row.gameDifference.toString())),
+        DataCell(Text(row.points.toString())),
       ],
     );
   }
@@ -156,38 +138,47 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
                     );
                   }
 
+                  final cutLineY = _tableHeadingHeight + (_tableRowHeight * 10);
+
                   return Scrollbar(
                     thumbVisibility: true,
                     child: SingleChildScrollView(
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columnSpacing: 0,
-                          horizontalMargin: 12,
-                          columns: const [
-                            DataColumn(label: Text('#')),
-                            DataColumn(label: Text('Player')),
-                            DataColumn(label: Text('M')),
-                            DataColumn(label: Text('W')),
-                            DataColumn(label: Text('L')),
-                            DataColumn(label: Text('Sets')),
-                            DataColumn(label: Text('Set +/-')),
-                            DataColumn(label: Text('Games')),
-                            DataColumn(label: Text('Gem +/-')),
-                            DataColumn(label: Text('Pts')),
+                        child: Stack(
+                          children: [
+                            DataTable(
+                              headingRowHeight: _tableHeadingHeight,
+                              dataRowMinHeight: _tableRowHeight,
+                              dataRowMaxHeight: _tableRowHeight,
+                              columns: const [
+                                DataColumn(label: Text('#')),
+                                DataColumn(label: Text('Player')),
+                                DataColumn(label: Text('M')),
+                                DataColumn(label: Text('W')),
+                                DataColumn(label: Text('L')),
+                                DataColumn(label: Text('Sets')),
+                                DataColumn(label: Text('Set +/-')),
+                                DataColumn(label: Text('Games')),
+                                DataColumn(label: Text('Gem +/-')),
+                                DataColumn(label: Text('Pts')),
+                              ],
+                              rows: List.generate(
+                                table.length,
+                                (index) => _buildRow(index + 1, table[index]),
+                              ),
+                            ),
+                            if (table.length > 10)
+                              Positioned(
+                                top: cutLineY,
+                                left: 0,
+                                right: 0,
+                                child: Container(
+                                  height: 2,
+                                  color: Colors.red,
+                                ),
+                              ),
                           ],
-                          rows: List.generate(
-                            table.length,
-                        (index) {
-                          final position = index + 1;
-                          final showCutLine = table.length > 10 && position == 11;
-                          return _buildRow(
-                            position,
-                            table[index],
-                            showTopDivider: showCutLine,
-                          );
-                        },
-                          ),
                         ),
                       ),
                     ),
