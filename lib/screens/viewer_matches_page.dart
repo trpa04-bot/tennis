@@ -76,6 +76,47 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
         '${date.year}';
   }
 
+  List<int>? _parseSetScore(String score) {
+    final cleaned = score.trim().replaceAll(' ', '');
+    if (cleaned.isEmpty) return null;
+
+    final normalized = cleaned.replaceAll('-', ':').replaceAll('/', ':');
+    final parts = normalized.split(':');
+    if (parts.length != 2) return null;
+
+    final a = int.tryParse(parts[0]);
+    final b = int.tryParse(parts[1]);
+    if (a == null || b == null) return null;
+
+    return [a, b];
+  }
+
+  String? _winnerName(MatchModel match) {
+    if (match.winnerId.isNotEmpty) {
+      if (match.winnerId == match.player1Id) return match.player1Name;
+      if (match.winnerId == match.player2Id) return match.player2Name;
+    }
+
+    int p1Sets = 0;
+    int p2Sets = 0;
+
+    for (final raw in [match.set1, match.set2]) {
+      final set = _parseSetScore(raw);
+      if (set == null) continue;
+      if (set[0] > set[1]) p1Sets++;
+      if (set[1] > set[0]) p2Sets++;
+    }
+
+    final stb = _parseSetScore(match.superTieBreak);
+    if (stb != null && p1Sets == p2Sets) {
+      if (stb[0] > stb[1]) p1Sets++;
+      if (stb[1] > stb[0]) p2Sets++;
+    }
+
+    if (p1Sets == p2Sets) return null;
+    return p1Sets > p2Sets ? match.player1Name : match.player2Name;
+  }
+
   List<int>? _parseScore(String score) {
     final cleaned = score.trim().replaceAll(' ', '');
     if (cleaned.isEmpty) return null;
@@ -319,6 +360,7 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                               itemCount: matches.length,
                               itemBuilder: (context, index) {
                                 final match = matches[index];
+                                final winner = _winnerName(match);
 
                                 return Card(
                                   child: ListTile(
@@ -327,8 +369,44 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                       allMatches,
                                     ),
                                     title: Text('${match.player1Name} vs ${match.player2Name}'),
-                                    subtitle: Text(
-                                      '${_buildScore(match)}\n${_formatDate(match.playedAt)}',
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${_buildScore(match)}\n${_formatDate(match.playedAt)}',
+                                        ),
+                                        if (winner != null) ...[
+                                          const SizedBox(height: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(
+                                                  Icons.emoji_events,
+                                                  size: 16,
+                                                  color: Colors.white,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  'Winner $winner',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                     isThreeLine: true,
                                   ),
