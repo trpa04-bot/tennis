@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/player.dart';
 import '../services/firestore_service.dart';
+import 'archived_players_page.dart';
 import 'player_details_page.dart';
 
 class PlayersPage extends StatefulWidget {
@@ -319,6 +320,20 @@ class _PlayersPageState extends State<PlayersPage> {
       appBar: AppBar(
         title: const Text('Players'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: 'Arhiva igrača',
+            icon: const Icon(Icons.archive_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ArchivedPlayersPage(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<List<Player>>(
         stream: firestoreService.getPlayers(),
