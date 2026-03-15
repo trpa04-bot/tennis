@@ -748,6 +748,75 @@ class FirestoreService {
     }
   }
 
+  /// Recalculates achievements for every player from scratch based on all matches.
+  Future<void> recalculateAllAchievements() async {
+    final playerSnapshot = await players.get();
+    final matchSnapshot = await matches.get();
+
+    final allMatches = matchSnapshot.docs.map((doc) {
+      final data = Map<String, dynamic>.from(doc.data() as Map);
+      return MatchModel.fromMap(data, id: doc.id);
+    }).toList()
+      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+
+    final batch = _db.batch();
+
+    for (final playerDoc in playerSnapshot.docs) {
+      final playerId = playerDoc.id;
+      final playerMatches = allMatches
+          .where((m) => m.player1Id == playerId || m.player2Id == playerId)
+          .toList();
+
+      final earned = <String>{};
+
+      // Cumulative: first_win, win_streak_3
+      final wins = playerMatches.where((m) {
+        final s = _parseSetWins(m);
+        return _resolveWinnerId(m, s) == playerId;
+      }).length;
+
+      if (wins >= 1) earned.add('first_win');
+
+      if (playerMatches.length >= 3) {
+        final last3 = playerMatches.take(3).toList();
+        if (last3.every((m) => _resolveWinnerId(m, _parseSetWins(m)) == playerId)) {
+          earned.add('win_streak_3');
+        }
+      }
+
+      // Per-match achievements
+      for (final match in playerMatches) {
+        final sets = _parseSetWins(match);
+        final winnerId = _resolveWinnerId(match, sets);
+        if (winnerId != playerId) continue;
+
+        final winnerIsP1 = match.player1Id == playerId;
+        final winnerSets = winnerIsP1 ? sets.player1SetsWon : sets.player2SetsWon;
+        final loserSets = winnerIsP1 ? sets.player2SetsWon : sets.player1SetsWon;
+
+        if (winnerSets == 2 && loserSets == 0) earned.add('perfect_match');
+
+        final stb = _parseScore(match.superTieBreak);
+        if (stb != null) {
+          final winnerWonStb = winnerIsP1 ? stb[0] > stb[1] : stb[1] > stb[0];
+          if (winnerWonStb) earned.add('tiebreak_hero');
+        }
+
+        final set1 = _parseScore(match.set1);
+        if (set1 != null) {
+          final winnerLostSet1 = winnerIsP1 ? set1[1] > set1[0] : set1[0] > set1[1];
+          if (winnerLostSet1) earned.add('comeback_king');
+        }
+      }
+
+      batch.update(players.doc(playerId), {
+        'achievements': earned.toList(),
+      });
+    }
+
+    await batch.commit();
+  }
+
   List<LeagueTableRow> _buildLeagueTable({
     required List<Player> players,
     required List<MatchModel> matches,

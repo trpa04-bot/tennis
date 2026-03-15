@@ -227,6 +227,53 @@ class _PlayersPageState extends State<PlayersPage> {
     );
   }
 
+  Future<void> _recalculateAchievements() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Retroaktivni achievementi'),
+        content: const Text(
+          'Ovo će izračunati achievemente za sve igrače na temelju dosadašnjih mečeva. Nastavi?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Odustani'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Izračunaj'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text('Računam achievemente...'),
+          ],
+        ),
+      ),
+    );
+
+    await firestoreService.recalculateAllAchievements();
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Achievementi su izračunati za sve igrače!')),
+    );
+  }
+
   void _openPlayerDetails(Player player) {
     if (player.id == null || player.id!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -321,6 +368,11 @@ class _PlayersPageState extends State<PlayersPage> {
         title: const Text('Players'),
         centerTitle: true,
         actions: [
+          IconButton(
+            tooltip: 'Retroaktivni achievementi',
+            icon: const Icon(Icons.workspace_premium_outlined),
+            onPressed: () => _recalculateAchievements(),
+          ),
           IconButton(
             tooltip: 'Arhiva igrača',
             icon: const Icon(Icons.archive_outlined),
