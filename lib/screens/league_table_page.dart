@@ -48,7 +48,6 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
         DataCell(Text('${row.gamesWon}:${row.gamesLost}')),
         DataCell(Text(row.gameDifference.toString())),
         DataCell(Text(row.points.toString())),
-        DataCell(Text(position == 1 ? '-' : '${row.pointsToNext}')),
       ],
     );
   }
@@ -58,8 +57,8 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.arrow_drop_up, color: Colors.blue),
-          Text('+$movement'),
+          const Icon(Icons.arrow_drop_up, color: Colors.blue, size: 28),
+          Text('+$movement', style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
         ],
       );
     }
@@ -68,13 +67,13 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.arrow_drop_down, color: Colors.lightBlue),
-          Text('$movement'),
+          const Icon(Icons.arrow_drop_down, color: Colors.red, size: 28),
+          Text('$movement', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
         ],
       );
     }
 
-    return const Text('0');
+    return const Text('-', style: TextStyle(color: Colors.grey));
   }
 
   @override
@@ -189,7 +188,6 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
                                 DataColumn(label: Text('Games')),
                                 DataColumn(label: Text('Gem +/-')),
                                 DataColumn(label: Text('Pts')),
-                                DataColumn(label: Text('Do #')), 
                               ],
                               rows: List.generate(
                                 table.length,
