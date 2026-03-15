@@ -324,13 +324,26 @@ class FirestoreService {
         }
       }
 
-      // Bodovi (primjer: 3 za pobjedu, 1 za poraz)
+      final p1WonByTwoSets = p1SetsWon == 2 && p2SetsWon == 0;
+      final p2WonByTwoSets = p2SetsWon == 2 && p1SetsWon == 0;
+
+      // Bodovanje:
+      // 2:0 -> pobjednik 3, porazeni 0
+      // 2:1 -> pobjednik 2, porazeni 1
       if (p1WonMatch) {
-        p1.points += 3;
-        p2.points += 1;
+        if (p1WonByTwoSets) {
+          p1.points += 3;
+        } else {
+          p1.points += 2;
+          p2.points += 1;
+        }
       } else if (p2WonMatch) {
-        p2.points += 3;
-        p1.points += 1;
+        if (p2WonByTwoSets) {
+          p2.points += 3;
+        } else {
+          p2.points += 2;
+          p1.points += 1;
+        }
       }
     }
 
