@@ -286,8 +286,6 @@ class FirestoreService {
       final stbParts = match.superTieBreak.split(":");
       int stb1 = stbParts.isNotEmpty ? int.tryParse(stbParts[0]) ?? 0 : 0;
       int stb2 = stbParts.length > 1 ? int.tryParse(stbParts[1]) ?? 0 : 0;
-      p1Games += stb1;
-      p2Games += stb2;
       if (stb1 > stb2) p1SetsWon++;
       if (stb2 > stb1) p2SetsWon++;
 
