@@ -19,7 +19,27 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
     'Summer 2026',
   ];
 
-  DataRow _buildRow(int position, LeagueTableRow row) {
+  DataCell _buildCell(String text, {bool showTopDivider = false}) {
+    return DataCell(
+      Container(
+        decoration: showTopDivider
+            ? const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.red, width: 2),
+                ),
+              )
+            : null,
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(text),
+      ),
+    );
+  }
+
+  DataRow _buildRow(
+    int position,
+    LeagueTableRow row, {
+    bool showTopDivider = false,
+  }) {
     Color? rowColor;
 
     if (position == 1) {
@@ -35,16 +55,16 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
           ? WidgetStatePropertyAll(rowColor)
           : null,
       cells: [
-        DataCell(Text(position.toString())),
-        DataCell(Text(row.playerName)),
-        DataCell(Text(row.played.toString())),
-        DataCell(Text(row.wins.toString())),
-        DataCell(Text(row.losses.toString())),
-        DataCell(Text('${row.setsWon}:${row.setsLost}')),
-        DataCell(Text(row.setDifference.toString())),
-        DataCell(Text('${row.gamesWon}:${row.gamesLost}')),
-        DataCell(Text(row.gameDifference.toString())),
-        DataCell(Text(row.points.toString())),
+        _buildCell(position.toString(), showTopDivider: showTopDivider),
+        _buildCell(row.playerName, showTopDivider: showTopDivider),
+        _buildCell(row.played.toString(), showTopDivider: showTopDivider),
+        _buildCell(row.wins.toString(), showTopDivider: showTopDivider),
+        _buildCell(row.losses.toString(), showTopDivider: showTopDivider),
+        _buildCell('${row.setsWon}:${row.setsLost}', showTopDivider: showTopDivider),
+        _buildCell(row.setDifference.toString(), showTopDivider: showTopDivider),
+        _buildCell('${row.gamesWon}:${row.gamesLost}', showTopDivider: showTopDivider),
+        _buildCell(row.gameDifference.toString(), showTopDivider: showTopDivider),
+        _buildCell(row.points.toString(), showTopDivider: showTopDivider),
       ],
     );
   }
@@ -156,7 +176,15 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
                           ],
                           rows: List.generate(
                             table.length,
-                            (index) => _buildRow(index + 1, table[index]),
+                        (index) {
+                          final position = index + 1;
+                          final showCutLine = table.length > 10 && position == 11;
+                          return _buildRow(
+                            position,
+                            table[index],
+                            showTopDivider: showCutLine,
+                          );
+                        },
                           ),
                         ),
                       ),
