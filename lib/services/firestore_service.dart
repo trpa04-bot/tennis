@@ -16,6 +16,7 @@ class FirestoreService {
   CollectionReference get players => _db.collection('players');
   CollectionReference get matches => _db.collection('matches');
   CollectionReference get playerArchive => _db.collection('player_archive');
+  CollectionReference get activity => _db.collection('activity');
 
   Future<void> resetTrend() async {
     await _db.collection('config').doc('trend').set({
@@ -180,9 +181,26 @@ class FirestoreService {
 
   Future<void> addMatch(MatchModel match) async {
     debugPrint('Saving match...');
-    await matches.add(match.toMap());
-    await _applyEloForMatch(match);
-    await _checkAndGrantAchievements(match);
+    final docRef = await matches.add(match.toMap());
+    final savedMatch = MatchModel(
+      id: docRef.id,
+      player1Id: match.player1Id,
+      player2Id: match.player2Id,
+      player1Name: match.player1Name,
+      player2Name: match.player2Name,
+      set1: match.set1,
+      set2: match.set2,
+      superTieBreak: match.superTieBreak,
+      season: match.season,
+      winnerId: match.winnerId,
+      playedAt: match.playedAt,
+    );
+    await _applyEloForMatch(savedMatch);
+    final earnedAchievements = await _checkAndGrantAchievements(savedMatch);
+    await _logActivitiesForMatch(
+      savedMatch,
+      earnedAchievements: earnedAchievements,
+    );
     debugPrint('Match saved successfully');
   }
 
@@ -198,7 +216,23 @@ class FirestoreService {
     int limit = 12,
     String? season,
   }) {
-    return players.snapshots().asyncExpand((playerSnapshot) async* {
+    return activity
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .snapshots()
+        .asyncExpand((activitySnapshot) async* {
+      if (activitySnapshot.docs.isNotEmpty) {
+        yield activitySnapshot.docs
+            .map((doc) {
+              final data = Map<String, dynamic>.from(doc.data() as Map);
+              return ActivityFeedItem.fromMap(data, id: doc.id);
+            })
+            .where((item) => season == null || season.isEmpty || item.season == season)
+            .toList();
+        return;
+      }
+
+      yield* players.snapshots().asyncExpand((playerSnapshot) async* {
       final allPlayers = playerSnapshot.docs
           .map(
             (doc) => Player.fromMap(
@@ -237,6 +271,7 @@ class FirestoreService {
         items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
         return items.take(limit).toList();
       });
+    });
     });
   }
 
@@ -802,6 +837,75 @@ class FirestoreService {
     ];
   }
 
+  Future<void> _logActivitiesForMatch(
+    MatchModel match, {
+    required List<String> earnedAchievements,
+  }) async {
+    final items = <ActivityFeedItem>[
+      _buildMatchActivity(match),
+      ...earnedAchievements.map(
+        (achievementId) => ActivityFeedItem(
+          timestamp: DateTime.now(),
+          icon: ActivityFeedIcon.achievement,
+          title:
+              '${_winnerNameForActivity(match)} earned badge',
+          subtitle: _achievementLabel(achievementId),
+          season: match.season,
+        ),
+      ),
+    ];
+
+    final playersSnapshot = await players.get();
+    final allPlayers = playersSnapshot.docs
+        .map(
+          (doc) => Player.fromMap(
+            Map<String, dynamic>.from(doc.data() as Map),
+            id: doc.id,
+          ),
+        )
+        .where((player) => !player.archived)
+        .toList();
+
+    final allMatchesSnapshot = await matches.get();
+    final allMatches = allMatchesSnapshot.docs
+        .map((doc) {
+          final data = Map<String, dynamic>.from(doc.data() as Map);
+          return MatchModel.fromMap(data, id: doc.id);
+        })
+        .where((m) => m.season == match.season)
+        .toList()
+      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+
+    items.addAll(
+      _buildMovementActivities(
+        match: match,
+        allPlayers: allPlayers,
+        allMatches: allMatches,
+      ).map(
+        (item) => ActivityFeedItem(
+          timestamp: DateTime.now(),
+          icon: item.icon,
+          title: item.title,
+          subtitle: item.subtitle,
+          season: match.season,
+        ),
+      ),
+    );
+
+    final batch = _db.batch();
+    for (final item in items) {
+      batch.set(activity.doc(), item.toMap());
+    }
+    await batch.commit();
+  }
+
+  String _winnerNameForActivity(MatchModel match) {
+    final winnerId = _resolveWinnerId(match, _parseSetWins(match));
+    if (winnerId == match.player1Id) return match.player1Name;
+    if (winnerId == match.player2Id) return match.player2Name;
+    return 'Unknown player';
+  }
+
   String _leagueForMatch(MatchModel match, List<Player> players) {
     for (final player in players) {
       if (player.id == match.player1Id || player.id == match.player2Id) {
@@ -895,12 +999,12 @@ class FirestoreService {
     }
   }
 
-  Future<void> _checkAndGrantAchievements(MatchModel match) async {
-    if (match.player1Id.isEmpty || match.player2Id.isEmpty) return;
+  Future<List<String>> _checkAndGrantAchievements(MatchModel match) async {
+    if (match.player1Id.isEmpty || match.player2Id.isEmpty) return <String>[];
 
     final sets = _parseSetWins(match);
     final winnerId = _resolveWinnerId(match, sets);
-    if (winnerId.isEmpty) return;
+    if (winnerId.isEmpty) return <String>[];
 
     final winnerIsP1 = winnerId == match.player1Id;
     final winnerSets = winnerIsP1 ? sets.player1SetsWon : sets.player2SetsWon;
@@ -910,10 +1014,12 @@ class FirestoreService {
     final stb = _parseScore(match.superTieBreak);
 
     final Map<String, dynamic> updates = {};
+    final earnedAchievements = <String>[];
 
     // perfect_match: 2:0 victory
     if (winnerSets == 2 && loserSets == 0) {
       updates['achievements.perfect_match'] = FieldValue.increment(1);
+      earnedAchievements.add('perfect_match');
     }
 
     // tiebreak_hero: won the super tie-break to win the match
@@ -921,6 +1027,7 @@ class FirestoreService {
       final winnerWonStb = winnerIsP1 ? stb[0] > stb[1] : stb[1] > stb[0];
       if (winnerWonStb) {
         updates['achievements.tiebreak_hero'] = FieldValue.increment(1);
+        earnedAchievements.add('tiebreak_hero');
       }
     }
 
@@ -929,6 +1036,7 @@ class FirestoreService {
       final winnerLostSet1 = winnerIsP1 ? set1[1] > set1[0] : set1[0] > set1[1];
       if (winnerLostSet1) {
         updates['achievements.comeback_king'] = FieldValue.increment(1);
+        earnedAchievements.add('comeback_king');
       }
     }
 
@@ -936,10 +1044,11 @@ class FirestoreService {
       await players.doc(winnerId).update(updates);
     }
 
-    await _checkCumulativeAchievements(winnerId);
+    earnedAchievements.addAll(await _checkCumulativeAchievements(winnerId));
+    return earnedAchievements;
   }
 
-  Future<void> _checkCumulativeAchievements(String playerId) async {
+  Future<List<String>> _checkCumulativeAchievements(String playerId) async {
     final matchSnapshot = await matches.get();
     final playerMatches = matchSnapshot.docs
         .map((doc) {
@@ -951,6 +1060,7 @@ class FirestoreService {
       ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
 
     final Map<String, dynamic> updates = {};
+  final earnedAchievements = <String>[];
 
     // first_win: grant once only
     final hasWin = playerMatches.any((m) => _resolveWinnerId(m, _parseSetWins(m)) == playerId);
@@ -961,6 +1071,7 @@ class FirestoreService {
       );
       if ((currentAch['first_win'] as int? ?? 0) == 0) {
         updates['achievements.first_win'] = 1;
+        earnedAchievements.add('first_win');
       }
     }
 
@@ -976,11 +1087,13 @@ class FirestoreService {
     }
     if (trailingStreak > 0 && trailingStreak % 3 == 0) {
       updates['achievements.win_streak_3'] = FieldValue.increment(1);
+      earnedAchievements.add('win_streak_3');
     }
 
     if (updates.isNotEmpty) {
       await players.doc(playerId).update(updates);
     }
+    return earnedAchievements;
   }
 
   /// Recalculates achievements for every player from scratch based on all matches.
@@ -1221,15 +1334,54 @@ class LeagueTableRow {
 enum ActivityFeedIcon { match, achievement, rankUp, rankDown }
 
 class ActivityFeedItem {
+  final String? id;
   final DateTime timestamp;
   final ActivityFeedIcon icon;
   final String title;
   final String subtitle;
+  final String? season;
 
   const ActivityFeedItem({
+    this.id,
     required this.timestamp,
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.season,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'timestamp': Timestamp.fromDate(timestamp),
+      'icon': icon.name,
+      'title': title,
+      'subtitle': subtitle,
+      'season': season,
+    };
+  }
+
+  factory ActivityFeedItem.fromMap(Map<dynamic, dynamic> map, {String? id}) {
+    final rawTimestamp = map['timestamp'];
+    DateTime parsedTimestamp = DateTime.now();
+    if (rawTimestamp is Timestamp) {
+      parsedTimestamp = rawTimestamp.toDate();
+    } else if (rawTimestamp is DateTime) {
+      parsedTimestamp = rawTimestamp;
+    }
+
+    final iconName = map['icon']?.toString() ?? ActivityFeedIcon.match.name;
+    final icon = ActivityFeedIcon.values.firstWhere(
+      (value) => value.name == iconName,
+      orElse: () => ActivityFeedIcon.match,
+    );
+
+    return ActivityFeedItem(
+      id: id,
+      timestamp: parsedTimestamp,
+      icon: icon,
+      title: map['title']?.toString() ?? '',
+      subtitle: map['subtitle']?.toString() ?? '',
+      season: map['season']?.toString(),
+    );
+  }
 }
