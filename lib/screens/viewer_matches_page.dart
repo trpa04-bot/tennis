@@ -76,6 +76,27 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
         '${date.year}';
   }
 
+  String _weekdayShort(DateTime date) {
+    switch (date.weekday) {
+      case DateTime.monday:
+        return 'pon';
+      case DateTime.tuesday:
+        return 'uto';
+      case DateTime.wednesday:
+        return 'sri';
+      case DateTime.thursday:
+        return 'čet';
+      case DateTime.friday:
+        return 'pet';
+      case DateTime.saturday:
+        return 'sub';
+      case DateTime.sunday:
+        return 'ned';
+      default:
+        return '';
+    }
+  }
+
   List<int>? _parseSetScore(String score) {
     final cleaned = score.trim().replaceAll(' ', '');
     if (cleaned.isEmpty) return null;
@@ -444,7 +465,7 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                               ),
                                               const SizedBox(width: 12),
                                               Text(
-                                                '${match.season} • ${_formatDate(match.playedAt)}',
+                                                '${match.season} • ${_weekdayShort(match.playedAt)} ${_formatDate(match.playedAt)}',
                                                 style: Theme.of(context)
                                                     .textTheme
                                                     .bodyMedium
