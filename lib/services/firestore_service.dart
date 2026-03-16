@@ -194,6 +194,52 @@ class FirestoreService {
     await matches.doc(id).delete();
   }
 
+  Stream<List<ActivityFeedItem>> getActivityFeed({
+    int limit = 12,
+    String? season,
+  }) {
+    return players.snapshots().asyncExpand((playerSnapshot) async* {
+      final allPlayers = playerSnapshot.docs
+          .map(
+            (doc) => Player.fromMap(
+              Map<String, dynamic>.from(doc.data() as Map),
+              id: doc.id,
+            ),
+          )
+          .where((player) => !player.archived)
+          .toList();
+
+      yield* matches.snapshots().map((matchSnapshot) {
+        final allMatches = matchSnapshot.docs
+            .map((doc) {
+              final data = Map<String, dynamic>.from(doc.data() as Map);
+              return MatchModel.fromMap(data, id: doc.id);
+            })
+            .where((match) => _resolveWinnerId(match, _parseSetWins(match)).isNotEmpty)
+            .where((match) => season == null || season.isEmpty || match.season == season)
+            .toList()
+          ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+
+        final items = <ActivityFeedItem>[];
+
+        for (final match in allMatches.take(limit)) {
+          items.add(_buildMatchActivity(match));
+          items.addAll(_buildAchievementActivities(match));
+          items.addAll(
+            _buildMovementActivities(
+              match: match,
+              allPlayers: allPlayers,
+              allMatches: allMatches,
+            ),
+          );
+        }
+
+        items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        return items.take(limit).toList();
+      });
+    });
+  }
+
   // LEAGUE TABLE STREAM
 
   Stream<List<LeagueTableRow>> getLeagueTable({
@@ -671,6 +717,153 @@ class FirestoreService {
         leaguePlayerIds.contains(match.player2Id);
   }
 
+  ActivityFeedItem _buildMatchActivity(MatchModel match) {
+    final winnerId = _resolveWinnerId(match, _parseSetWins(match));
+    final winnerName = winnerId == match.player1Id ? match.player1Name : match.player2Name;
+    final loserName = winnerId == match.player1Id ? match.player2Name : match.player1Name;
+
+    return ActivityFeedItem(
+      timestamp: match.playedAt,
+      icon: ActivityFeedIcon.match,
+      title: '$winnerName defeated $loserName',
+      subtitle: _buildActivityScore(match),
+    );
+  }
+
+  List<ActivityFeedItem> _buildAchievementActivities(MatchModel match) {
+    final winnerId = _resolveWinnerId(match, _parseSetWins(match));
+    if (winnerId.isEmpty) return const [];
+
+    final winnerName = winnerId == match.player1Id ? match.player1Name : match.player2Name;
+    final achievements = _activityAchievementsForMatch(match, winnerId);
+
+    return achievements
+        .map(
+          (achievementId) => ActivityFeedItem(
+            timestamp: match.playedAt.subtract(const Duration(seconds: 1)),
+            icon: ActivityFeedIcon.achievement,
+            title: '$winnerName earned badge',
+            subtitle: _achievementLabel(achievementId),
+          ),
+        )
+        .toList();
+  }
+
+  List<ActivityFeedItem> _buildMovementActivities({
+    required MatchModel match,
+    required List<Player> allPlayers,
+    required List<MatchModel> allMatches,
+  }) {
+    final league = _leagueForMatch(match, allPlayers);
+    if (league.isEmpty) return const [];
+
+    final leaguePlayers = allPlayers
+        .where((player) => !player.frozen && !player.archived && _normalizeLeague(player.league) == league)
+        .toList();
+    if (leaguePlayers.isEmpty) return const [];
+
+    final upToMatch = allMatches
+        .where((m) => m.playedAt.isBefore(match.playedAt) || m.playedAt.isAtSameMomentAs(match.playedAt))
+        .where((m) => m.season == match.season)
+        .where((m) => _matchBelongsToLeague(match: m, playersInLeague: leaguePlayers))
+        .toList();
+
+    final beforeMatch = upToMatch.where((m) => m.id != match.id).toList();
+    if (beforeMatch.isEmpty) return const [];
+
+    final currentTable = _buildLeagueTable(players: leaguePlayers, matches: upToMatch);
+    final previousTable = _buildLeagueTable(players: leaguePlayers, matches: beforeMatch);
+    _applyMovementAndChaseData(currentTable: currentTable, previousTable: previousTable);
+
+    final movers = currentTable.where((row) => row.movement != 0).toList()
+      ..sort((a, b) => b.movement.abs().compareTo(a.movement.abs()));
+
+    if (movers.isEmpty) return const [];
+
+    final topMover = movers.first;
+    if (topMover.movement > 0) {
+      return [
+        ActivityFeedItem(
+          timestamp: match.playedAt.subtract(const Duration(seconds: 2)),
+          icon: ActivityFeedIcon.rankUp,
+          title: '${topMover.playerName} moved to #${currentTable.indexOf(topMover) + 1}',
+          subtitle: 'Up ${topMover.movement} place${topMover.movement == 1 ? '' : 's'} in League $league',
+        ),
+      ];
+    }
+
+    return [
+      ActivityFeedItem(
+        timestamp: match.playedAt.subtract(const Duration(seconds: 2)),
+        icon: ActivityFeedIcon.rankDown,
+        title: '${topMover.playerName} dropped to #${currentTable.indexOf(topMover) + 1}',
+        subtitle: 'Down ${topMover.movement.abs()} place${topMover.movement.abs() == 1 ? '' : 's'} in League $league',
+      ),
+    ];
+  }
+
+  String _leagueForMatch(MatchModel match, List<Player> players) {
+    for (final player in players) {
+      if (player.id == match.player1Id || player.id == match.player2Id) {
+        return _normalizeLeague(player.league);
+      }
+    }
+    return '';
+  }
+
+  List<String> _activityAchievementsForMatch(MatchModel match, String winnerId) {
+    final sets = _parseSetWins(match);
+    final winnerIsP1 = winnerId == match.player1Id;
+    final winnerSets = winnerIsP1 ? sets.player1SetsWon : sets.player2SetsWon;
+    final loserSets = winnerIsP1 ? sets.player2SetsWon : sets.player1SetsWon;
+    final set1 = _parseScore(match.set1);
+    final stb = _parseScore(match.superTieBreak);
+
+    final result = <String>[];
+    if (winnerSets == 2 && loserSets == 0) {
+      result.add('perfect_match');
+    }
+    if (stb != null) {
+      final winnerWonStb = winnerIsP1 ? stb[0] > stb[1] : stb[1] > stb[0];
+      if (winnerWonStb) {
+        result.add('tiebreak_hero');
+      }
+    }
+    if (set1 != null) {
+      final winnerLostSet1 = winnerIsP1 ? set1[1] > set1[0] : set1[0] > set1[1];
+      if (winnerLostSet1) {
+        result.add('comeback_king');
+      }
+    }
+    return result;
+  }
+
+  String _achievementLabel(String achievementId) {
+    switch (achievementId) {
+      case 'first_win':
+        return 'First Win';
+      case 'win_streak_3':
+        return '3 Wins in a Row';
+      case 'comeback_king':
+        return 'Comeback King';
+      case 'perfect_match':
+        return 'Perfect Match';
+      case 'tiebreak_hero':
+        return 'Tie-Break Hero';
+      default:
+        return achievementId;
+    }
+  }
+
+  String _buildActivityScore(MatchModel match) {
+    final scores = <String>[];
+    for (final raw in [match.set1, match.set2, match.superTieBreak]) {
+      if (raw.trim().isEmpty) continue;
+      scores.add(raw.replaceAll(':', '-'));
+    }
+    return scores.join(' ');
+  }
+
   void _applyMovementAndChaseData({
     required List<LeagueTableRow> currentTable,
     required List<LeagueTableRow> previousTable,
@@ -1023,4 +1216,20 @@ class LeagueTableRow {
 
   int get setDifference => setsWon - setsLost;
   int get gameDifference => gamesWon - gamesLost;
+}
+
+enum ActivityFeedIcon { match, achievement, rankUp, rankDown }
+
+class ActivityFeedItem {
+  final DateTime timestamp;
+  final ActivityFeedIcon icon;
+  final String title;
+  final String subtitle;
+
+  const ActivityFeedItem({
+    required this.timestamp,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 }
