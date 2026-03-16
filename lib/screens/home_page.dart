@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
+import '../utils/browser_reload.dart';
 import 'archived_players_page.dart';
 import 'league_management_page.dart';
 import 'league_table_page.dart';
@@ -284,6 +285,20 @@ class ViewerWelcomePage extends StatelessWidget {
         title: const SizedBox.shrink(),
         centerTitle: true,
         actions: [
+          IconButton(
+            tooltip: 'Refresh app',
+            onPressed: () async {
+              final didReload = await tryReloadApp();
+              if (!didReload && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Osvježavanje nije podržano na ovoj platformi.'),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.refresh),
+          ),
           IconButton(
             tooltip: 'Admin login',
             onPressed: () {
