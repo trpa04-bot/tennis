@@ -317,7 +317,7 @@ class ViewerWelcomePage extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Image.asset(
-            'assets/home_wallpaper.jpg',
+            'assets/photo_2026-03-16_16-23-22.jpg',
             fit: BoxFit.cover,
             filterQuality: FilterQuality.low,
             errorBuilder: (context, error, stackTrace) =>
