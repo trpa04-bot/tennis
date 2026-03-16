@@ -90,38 +90,46 @@ class PlayerDetailsPage extends StatelessWidget {
 
                 final playerAchievements =
                     playersById[playerId]?.achievements ?? <String, int>{};
+                final isCompact = MediaQuery.of(context).size.width < 420;
+                final pagePadding = EdgeInsets.fromLTRB(
+                  isCompact ? 12 : 16,
+                  isCompact ? 12 : 16,
+                  isCompact ? 12 : 16,
+                  isCompact ? 18 : 20,
+                );
+                final sectionGap = SizedBox(height: isCompact ? 12 : 16);
 
                 return TabBarView(
                   children: [
                     // Pregled — hero + ATP overview
                     SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      padding: pagePadding,
                       child: Column(
                         children: [
                           _heroCard(context, stats),
-                          const SizedBox(height: 16),
+                          sectionGap,
                           _atpStyleCard(context, stats, matches),
                         ],
                       ),
                     ),
                     // Statistike — progress chart + stats grid
                     SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      padding: pagePadding,
                       child: Column(
                         children: [
                           _progressChartCard(context, matches),
-                          const SizedBox(height: 16),
+                          sectionGap,
                           _mainStatsGrid(context, stats),
                         ],
                       ),
                     ),
                     // Mečevi — achievements + recent matches
                     SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      padding: pagePadding,
                       child: Column(
                         children: [
                           _achievementsCard(context, playerAchievements),
-                          const SizedBox(height: 16),
+                          sectionGap,
                           _recentMatchesCard(matches, playersById),
                         ],
                       ),
@@ -211,7 +219,20 @@ class PlayerDetailsPage extends StatelessWidget {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final cols = screenWidth > 480 ? 3 : 2;
-    final ratio = screenWidth > 480 ? 2.35 : 1.68;
+    final isCompact = screenWidth < 420;
+    final mainAxisExtent = screenWidth > 480
+        ? 112.0
+        : (isCompact ? 124.0 : 118.0);
+    final titleStyle = TextStyle(
+      color: Colors.grey,
+      fontSize: isCompact ? 14 : 15,
+      height: 1.1,
+    );
+    final valueStyle = TextStyle(
+      fontSize: isCompact ? 28 : 30,
+      fontWeight: FontWeight.bold,
+      height: 1.0,
+    );
 
     return GridView.builder(
       itemCount: items.length,
@@ -219,15 +240,18 @@ class PlayerDetailsPage extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: cols,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: ratio,
+        mainAxisSpacing: isCompact ? 10 : 12,
+        crossAxisSpacing: isCompact ? 10 : 12,
+        mainAxisExtent: mainAxisExtent,
       ),
       itemBuilder: (context, index) {
         final item = items[index];
         return Card(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: isCompact ? 8 : 10,
+              vertical: isCompact ? 10 : 12,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -236,22 +260,14 @@ class PlayerDetailsPage extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.grey),
+                  style: titleStyle,
                 ),
                 const SizedBox(height: 6),
                 Expanded(
                   child: Center(
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(
-                        item.value,
-                        maxLines: 1,
-                        style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          height: 1.0,
-                        ),
-                      ),
+                      child: Text(item.value, maxLines: 1, style: valueStyle),
                     ),
                   ),
                 ),
