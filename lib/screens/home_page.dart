@@ -127,7 +127,7 @@ class _ViewerHomePageState extends State<ViewerHomePage> {
     ViewerWelcomePage(),
     ViewerPlayersPage(),
     ViewerMatchesPage(),
-    LeagueTablePage(),
+    LeagueTablePage(canResetTrend: false),
     _ActivityFeedPage(),
   ];
 

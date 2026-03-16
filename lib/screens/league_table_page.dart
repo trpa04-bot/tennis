@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 
 class LeagueTablePage extends StatefulWidget {
-  const LeagueTablePage({super.key});
+  final bool canResetTrend;
+
+  const LeagueTablePage({
+    super.key,
+    this.canResetTrend = true,
+  });
 
   @override
   State<LeagueTablePage> createState() => _LeagueTablePageState();
@@ -117,13 +122,15 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
           appBar: AppBar(
             title: const Text('League Table'),
             centerTitle: true,
-            actions: [
-              IconButton(
-                tooltip: 'Reset trend',
-                icon: const Icon(Icons.restart_alt),
-                onPressed: () => _confirmResetTrend(context),
-              ),
-            ],
+            actions: widget.canResetTrend
+                ? [
+                    IconButton(
+                      tooltip: 'Reset trend',
+                      icon: const Icon(Icons.restart_alt),
+                      onPressed: () => _confirmResetTrend(context),
+                    ),
+                  ]
+                : null,
           ),
           body: Column(
             children: [
