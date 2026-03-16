@@ -171,11 +171,16 @@ class FirestoreService {
   // MATCHES
 
   Stream<List<MatchModel>> getMatches() {
-    return matches.snapshots().map(
-      (snapshot) => snapshot.docs.map((doc) {
-        final data = Map<String, dynamic>.from(doc.data() as Map);
-        return MatchModel.fromMap(data, id: doc.id);
-      }).toList(),
+    return matches.orderBy('playedAt', descending: true).snapshots().map(
+      (snapshot) {
+        final items = snapshot.docs.map((doc) {
+          final data = Map<String, dynamic>.from(doc.data() as Map);
+          return MatchModel.fromMap(data, id: doc.id);
+        }).toList();
+
+        items.sort((a, b) => b.playedAt.compareTo(a.playedAt));
+        return items;
+      },
     );
   }
 
