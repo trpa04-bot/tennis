@@ -76,6 +76,11 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
         '${date.year}';
   }
 
+  String _formatShortDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.'
+        '${date.month.toString().padLeft(2, '0')}.';
+  }
+
   String _weekdayShort(DateTime date) {
     switch (date.weekday) {
       case DateTime.monday:
@@ -386,6 +391,11 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                 final player2Won = player1Won == null
                                     ? null
                                     : !player1Won;
+                                final isCompactCard =
+                                    MediaQuery.of(context).size.width < 430;
+                                final metaText = isCompactCard
+                                    ? '${_weekdayShort(match.playedAt)} ${_formatShortDate(match.playedAt)}'
+                                    : '${match.season} • ${_weekdayShort(match.playedAt)} ${_formatDate(match.playedAt)}';
 
                                 return Card(
                                   margin: const EdgeInsets.symmetric(
@@ -399,9 +409,9 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                       allMatches,
                                     ),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 12,
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: isCompactCard ? 12 : 16,
+                                        vertical: isCompactCard ? 10 : 12,
                                       ),
                                       child: Column(
                                         crossAxisAlignment:
@@ -411,7 +421,7 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                             children: [
                                               Expanded(
                                                 child: RichText(
-                                                  maxLines: 1,
+                                                  maxLines: isCompactCard ? 2 : 1,
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                   text: TextSpan(
@@ -419,7 +429,10 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                                       TextSpan(
                                                         text: match.player1Name,
                                                         style: TextStyle(
-                                                          fontSize: 17,
+                                                          fontSize:
+                                                              isCompactCard
+                                                              ? 15
+                                                              : 17,
                                                           fontWeight:
                                                               player1Won == true
                                                               ? FontWeight.w800
@@ -436,7 +449,7 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                                       const TextSpan(
                                                         text: ' vs ',
                                                         style: TextStyle(
-                                                          fontSize: 16,
+                                                          fontSize: 15,
                                                           fontWeight:
                                                               FontWeight.w500,
                                                           color: Colors.black45,
@@ -445,7 +458,10 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                                       TextSpan(
                                                         text: match.player2Name,
                                                         style: TextStyle(
-                                                          fontSize: 17,
+                                                          fontSize:
+                                                              isCompactCard
+                                                              ? 15
+                                                              : 17,
                                                           fontWeight:
                                                               player2Won == true
                                                               ? FontWeight.w800
@@ -465,11 +481,15 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                               ),
                                               const SizedBox(width: 12),
                                               Text(
-                                                '${match.season} • ${_weekdayShort(match.playedAt)} ${_formatDate(match.playedAt)}',
+                                                metaText,
                                                 style: Theme.of(context)
                                                     .textTheme
                                                     .bodyMedium
                                                     ?.copyWith(
+                                                      fontSize:
+                                                          isCompactCard
+                                                          ? 13
+                                                          : null,
                                                       color: Colors.black54,
                                                     ),
                                               ),
