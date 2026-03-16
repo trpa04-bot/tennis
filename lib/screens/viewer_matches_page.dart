@@ -361,6 +361,10 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                               itemBuilder: (context, index) {
                                 final match = matches[index];
                                 final winner = _winnerName(match);
+                                final player1Won = _didPlayer1WinMatch(match);
+                                final player2Won = player1Won == null
+                                    ? null
+                                    : !player1Won;
 
                                 return Card(
                                   margin: const EdgeInsets.symmetric(
@@ -385,14 +389,56 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                           Row(
                                             children: [
                                               Expanded(
-                                                child: Text(
-                                                  '${match.player1Name} vs ${match.player2Name}',
+                                                child: RichText(
                                                   maxLines: 1,
                                                   overflow:
                                                       TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    fontSize: 17,
-                                                    fontWeight: FontWeight.w600,
+                                                  text: TextSpan(
+                                                    children: [
+                                                      TextSpan(
+                                                        text: match.player1Name,
+                                                        style: TextStyle(
+                                                          fontSize: 17,
+                                                          fontWeight:
+                                                              player1Won == true
+                                                              ? FontWeight.w800
+                                                              : FontWeight.w500,
+                                                          color: player1Won ==
+                                                                  true
+                                                              ? Colors.green.shade700
+                                                              : player2Won ==
+                                                                      true
+                                                                  ? Colors.black54
+                                                                  : Colors.black87,
+                                                        ),
+                                                      ),
+                                                      const TextSpan(
+                                                        text: ' vs ',
+                                                        style: TextStyle(
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                          color: Colors.black45,
+                                                        ),
+                                                      ),
+                                                      TextSpan(
+                                                        text: match.player2Name,
+                                                        style: TextStyle(
+                                                          fontSize: 17,
+                                                          fontWeight:
+                                                              player2Won == true
+                                                              ? FontWeight.w800
+                                                              : FontWeight.w500,
+                                                          color: player2Won ==
+                                                                  true
+                                                              ? Colors.green.shade700
+                                                              : player1Won ==
+                                                                      true
+                                                                  ? Colors.black54
+                                                                  : Colors.black87,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               ),
@@ -449,12 +495,35 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                               if (winner != null)
                                                 const SizedBox(width: 10),
                                               Expanded(
-                                                child: Text(
-                                                  _buildScoreOnly(match),
-                                                  textAlign: TextAlign.right,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w800,
-                                                    fontSize: 16,
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 6,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: winner != null
+                                                        ? Colors.green
+                                                              .withValues(
+                                                                alpha: 0.08,
+                                                              )
+                                                        : Colors.transparent,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                      8,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    _buildScoreOnly(match),
+                                                    textAlign: TextAlign.right,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      fontSize: 16,
+                                                      color: winner != null
+                                                          ? Colors.green.shade800
+                                                          : Colors.black87,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
