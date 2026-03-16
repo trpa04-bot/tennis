@@ -244,8 +244,8 @@ class ViewerWelcomePage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      width: 240,
-      height: 240,
+      width: 212,
+      height: 212,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
@@ -561,6 +561,20 @@ class _ActivityFeedCard extends StatelessWidget {
                       title: Text(
                         item.title,
                         style: const TextStyle(fontWeight: FontWeight.w600),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.black.withValues(alpha: 0.26),
+                  Colors.black.withValues(alpha: 0.12),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.25, 0.65],
+                begin: Alignment.topCenter,
+                end: Alignment.center,
+              ),
+            ),
+          ),
                       ),
                       subtitle: Text('${item.subtitle} • ${_formatFeedDate(item.timestamp)}'),
                     );
