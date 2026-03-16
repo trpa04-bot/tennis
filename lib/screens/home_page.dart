@@ -332,9 +332,9 @@ class ViewerWelcomePage extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  colorScheme.surface.withValues(alpha: 0.70),
-                  colorScheme.surface.withValues(alpha: 0.44),
-                  colorScheme.primaryContainer.withValues(alpha: 0.60),
+                  colorScheme.surface.withValues(alpha: 0.34),
+                  colorScheme.surface.withValues(alpha: 0.18),
+                  colorScheme.primaryContainer.withValues(alpha: 0.28),
                 ],
                 stops: const [0.0, 0.45, 1.0],
                 begin: Alignment.topLeft,
@@ -346,8 +346,8 @@ class ViewerWelcomePage extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.black.withValues(alpha: 0.26),
-                  Colors.black.withValues(alpha: 0.12),
+                  Colors.black.withValues(alpha: 0.14),
+                  Colors.black.withValues(alpha: 0.06),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.25, 0.65],
@@ -362,8 +362,8 @@ class ViewerWelcomePage extends StatelessWidget {
                 center: const Alignment(0, -0.55),
                 radius: 0.95,
                 colors: [
-                  Colors.black.withValues(alpha: 0.22),
                   Colors.black.withValues(alpha: 0.10),
+                  Colors.black.withValues(alpha: 0.04),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.38, 1.0],
@@ -388,7 +388,7 @@ class ViewerWelcomePage extends StatelessWidget {
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(24),
-                          color: colorScheme.surface.withValues(alpha: 0.60),
+                          color: colorScheme.surface.withValues(alpha: 0.46),
                           border: Border.all(
                             color: colorScheme.onSurface.withValues(alpha: 0.08),
                           ),
