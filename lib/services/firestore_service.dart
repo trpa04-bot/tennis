@@ -676,6 +676,81 @@ class FirestoreService {
     return [a, b];
   }
 
+  String _normalizePlayerName(String name) {
+    return name.trim().toLowerCase();
+  }
+
+  Future<String> _resolvePlayerDocId({
+    required String playerId,
+    required String playerName,
+  }) async {
+    if (playerId.isNotEmpty) return playerId;
+
+    final trimmedName = playerName.trim();
+    if (trimmedName.isEmpty) return '';
+
+    final exactSnapshot = await players.where('name', isEqualTo: trimmedName).limit(1).get();
+    if (exactSnapshot.docs.isNotEmpty) {
+      return exactSnapshot.docs.first.id;
+    }
+
+    final normalizedName = _normalizePlayerName(trimmedName);
+    final allPlayersSnapshot = await players.get();
+    for (final doc in allPlayersSnapshot.docs) {
+      final data = Map<String, dynamic>.from(doc.data() as Map);
+      final name = data['name']?.toString() ?? '';
+      if (_normalizePlayerName(name) == normalizedName) {
+        return doc.id;
+      }
+    }
+
+    return '';
+  }
+
+  bool _matchInvolvesPlayer(
+    MatchModel match, {
+    required String playerId,
+    required String playerName,
+  }) {
+    if (match.player1Id == playerId || match.player2Id == playerId) {
+      return true;
+    }
+
+    final normalizedName = _normalizePlayerName(playerName);
+    return _normalizePlayerName(match.player1Name) == normalizedName ||
+        _normalizePlayerName(match.player2Name) == normalizedName;
+  }
+
+  bool _didPlayerWinResolved(
+    MatchModel match, {
+    required String playerId,
+    required String playerName,
+  }) {
+    final sets = _parseSetWins(match);
+    if (sets.player1SetsWon == sets.player2SetsWon) {
+      return false;
+    }
+
+    if (match.winnerId.isNotEmpty && match.winnerId == playerId) {
+      return true;
+    }
+
+    final normalizedName = _normalizePlayerName(playerName);
+    final isPlayer1 = match.player1Id == playerId ||
+        _normalizePlayerName(match.player1Name) == normalizedName;
+    final isPlayer2 = match.player2Id == playerId ||
+        _normalizePlayerName(match.player2Name) == normalizedName;
+
+    if (isPlayer1) {
+      return sets.player1SetsWon > sets.player2SetsWon;
+    }
+    if (isPlayer2) {
+      return sets.player2SetsWon > sets.player1SetsWon;
+    }
+
+    return false;
+  }
+
   String _resolveWinnerId(MatchModel match, _SetWins sets) {
     if (match.winnerId.isNotEmpty) return match.winnerId;
 
@@ -1000,13 +1075,16 @@ class FirestoreService {
   }
 
   Future<List<String>> _checkAndGrantAchievements(MatchModel match) async {
-    if (match.player1Id.isEmpty || match.player2Id.isEmpty) return <String>[];
-
     final sets = _parseSetWins(match);
-    final winnerId = _resolveWinnerId(match, sets);
+    if (sets.player1SetsWon == sets.player2SetsWon) return <String>[];
+
+    final winnerIsP1 = sets.player1SetsWon > sets.player2SetsWon;
+    final winnerId = await _resolvePlayerDocId(
+      playerId: winnerIsP1 ? match.player1Id : match.player2Id,
+      playerName: winnerIsP1 ? match.player1Name : match.player2Name,
+    );
     if (winnerId.isEmpty) return <String>[];
 
-    final winnerIsP1 = winnerId == match.player1Id;
     final winnerSets = winnerIsP1 ? sets.player1SetsWon : sets.player2SetsWon;
     final loserSets = winnerIsP1 ? sets.player2SetsWon : sets.player1SetsWon;
 
@@ -1049,26 +1127,43 @@ class FirestoreService {
   }
 
   Future<List<String>> _checkCumulativeAchievements(String playerId) async {
+    final playerDoc = await players.doc(playerId).get();
+    if (!playerDoc.exists) return <String>[];
+
+    final playerData = Map<String, dynamic>.from(playerDoc.data() as Map);
+    final playerName = playerData['name']?.toString() ?? '';
+
     final matchSnapshot = await matches.get();
     final playerMatches = matchSnapshot.docs
         .map((doc) {
           final data = Map<String, dynamic>.from(doc.data() as Map);
           return MatchModel.fromMap(data, id: doc.id);
         })
-        .where((m) => m.player1Id == playerId || m.player2Id == playerId)
+        .where(
+          (m) => _matchInvolvesPlayer(
+            m,
+            playerId: playerId,
+            playerName: playerName,
+          ),
+        )
         .toList()
       ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
 
     final Map<String, dynamic> updates = {};
-  final earnedAchievements = <String>[];
+    final currentAch = Map<String, dynamic>.from(
+      (playerData['achievements'] as Map?) ?? {},
+    );
+    final earnedAchievements = <String>[];
 
     // first_win: grant once only
-    final hasWin = playerMatches.any((m) => _resolveWinnerId(m, _parseSetWins(m)) == playerId);
+    final hasWin = playerMatches.any(
+      (m) => _didPlayerWinResolved(
+        m,
+        playerId: playerId,
+        playerName: playerName,
+      ),
+    );
     if (hasWin) {
-      final playerDoc = await players.doc(playerId).get();
-      final currentAch = Map<String, dynamic>.from(
-        (playerDoc.data() as Map? ?? {})['achievements'] as Map? ?? {},
-      );
       if ((currentAch['first_win'] as int? ?? 0) == 0) {
         updates['achievements.first_win'] = 1;
         earnedAchievements.add('first_win');
@@ -1078,14 +1173,20 @@ class FirestoreService {
     // win_streak_3: trailing win streak divisible by 3 → new group of 3 completed
     int trailingStreak = 0;
     for (final m in playerMatches.reversed) {
-      final s = _parseSetWins(m);
-      if (_resolveWinnerId(m, s) == playerId) {
+      if (
+          _didPlayerWinResolved(
+            m,
+            playerId: playerId,
+            playerName: playerName,
+          )) {
         trailingStreak++;
       } else {
         break;
       }
     }
-    if (trailingStreak > 0 && trailingStreak % 3 == 0) {
+    final currentStreakCount = currentAch['win_streak_3'] as int? ?? 0;
+    final expectedStreakCount = trailingStreak ~/ 3;
+    if (expectedStreakCount > currentStreakCount) {
       updates['achievements.win_streak_3'] = FieldValue.increment(1);
       earnedAchievements.add('win_streak_3');
     }
