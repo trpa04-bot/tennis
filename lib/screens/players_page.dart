@@ -227,6 +227,53 @@ class _PlayersPageState extends State<PlayersPage> {
     );
   }
 
+  Future<void> _rebuildActivityFeed() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rebuild Activity Feed'),
+        content: const Text(
+          'Ovo će izbrisati cijeli activity feed i ponovo ga izgraditi iz svih postojećih mečeva. Nastavi?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Odustani'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Rebuild'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text('Gradim feed...'),
+          ],
+        ),
+      ),
+    );
+
+    await firestoreService.rebuildActivityFeed();
+
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Activity feed je obnovljen!')),
+    );
+  }
+
   Future<void> _recalculateAchievements() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -368,6 +415,11 @@ class _PlayersPageState extends State<PlayersPage> {
         title: const Text('Players'),
         centerTitle: true,
         actions: [
+          IconButton(
+            tooltip: 'Rebuild Activity Feed',
+            icon: const Icon(Icons.history_outlined),
+            onPressed: () => _rebuildActivityFeed(),
+          ),
           IconButton(
             tooltip: 'Retroaktivni achievementi',
             icon: const Icon(Icons.workspace_premium_outlined),

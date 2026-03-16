@@ -1169,6 +1169,96 @@ class FirestoreService {
     await batch.commit();
   }
 
+  /// Deletes all existing activity docs and rebuilds them from scratch
+  /// based on every match in the database.
+  Future<void> rebuildActivityFeed() async {
+    // 1. Delete all existing activity documents in batches of 499
+    var activitySnapshot = await activity.get();
+    while (activitySnapshot.docs.isNotEmpty) {
+      final deleteBatch = _db.batch();
+      final chunk = activitySnapshot.docs.take(499).toList();
+      for (final doc in chunk) {
+        deleteBatch.delete(doc.reference);
+      }
+      await deleteBatch.commit();
+      if (activitySnapshot.docs.length <= 499) break;
+      activitySnapshot = await activity.get();
+    }
+
+    // 2. Load all data
+    final playersSnapshot = await players.get();
+    final allPlayers = playersSnapshot.docs
+        .map((doc) => Player.fromMap(
+              Map<String, dynamic>.from(doc.data() as Map),
+              id: doc.id,
+            ))
+        .where((p) => !p.archived)
+        .toList();
+
+    final matchesSnapshot = await matches.get();
+    final allMatches = matchesSnapshot.docs
+        .map((doc) => MatchModel.fromMap(
+              Map<String, dynamic>.from(doc.data() as Map),
+              id: doc.id,
+            ))
+        .where((m) => _resolveWinnerId(m, _parseSetWins(m)).isNotEmpty)
+        .toList()
+      ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
+
+    // 3. Build activity items for every match
+    final items = <ActivityFeedItem>[];
+
+    for (final match in allMatches) {
+      final winnerId = _resolveWinnerId(match, _parseSetWins(match));
+
+      // Match result
+      final matchActivity = _buildMatchActivity(match);
+      items.add(ActivityFeedItem(
+        timestamp: matchActivity.timestamp,
+        icon: matchActivity.icon,
+        title: matchActivity.title,
+        subtitle: matchActivity.subtitle,
+        season: match.season,
+      ));
+
+      // Badge activities
+      for (final achievementId in _activityAchievementsForMatch(match, winnerId)) {
+        items.add(ActivityFeedItem(
+          timestamp: match.playedAt.subtract(const Duration(seconds: 1)),
+          icon: ActivityFeedIcon.achievement,
+          title: '${_winnerNameForActivity(match)} earned badge',
+          subtitle: _achievementLabel(achievementId),
+          season: match.season,
+        ));
+      }
+
+      // Rank movement activities
+      for (final item in _buildMovementActivities(
+        match: match,
+        allPlayers: allPlayers,
+        allMatches: allMatches,
+      )) {
+        items.add(ActivityFeedItem(
+          timestamp: item.timestamp,
+          icon: item.icon,
+          title: item.title,
+          subtitle: item.subtitle,
+          season: match.season,
+        ));
+      }
+    }
+
+    // 4. Write all items in batches of 499
+    const batchSize = 499;
+    for (var i = 0; i < items.length; i += batchSize) {
+      final writeBatch = _db.batch();
+      for (final item in items.skip(i).take(batchSize)) {
+        writeBatch.set(activity.doc(), item.toMap());
+      }
+      await writeBatch.commit();
+    }
+  }
+
   List<LeagueTableRow> _buildLeagueTable({
     required List<Player> players,
     required List<MatchModel> matches,
