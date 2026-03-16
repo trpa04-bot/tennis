@@ -29,29 +29,20 @@ class Player {
   }
 
   factory Player.fromMap(Map<dynamic, dynamic> map, {String? id}) {
-    final frozenRaw = map['frozen'];
-    final archivedRaw = map['archived'];
-
     return Player(
       id: id,
       name: map['name']?.toString() ?? '',
       rating: int.tryParse(map['rating']?.toString() ?? '0') ?? 0,
       league: map['league']?.toString() ?? '',
-      frozen: frozenRaw == true || frozenRaw?.toString().toLowerCase() == 'true',
-      archived:
-          archivedRaw == true || archivedRaw?.toString().toLowerCase() == 'true',
-      achievements: () {
-        final raw = map['achievements'];
-        if (raw is Map) {
-          return Map<String, int>.from(
-            raw.map((k, v) => MapEntry(
-              k.toString(),
-              (v is int) ? v : int.tryParse(v.toString()) ?? 0,
-            )),
-          );
-        }
-        return <String, int>{};
-      }(),
+      frozen: map['frozen'] == true,
+      archived: map['archived'] == true,
+      achievements: ((map['achievements'] as Map?) ?? const <dynamic, dynamic>{})
+          .map(
+            (key, value) => MapEntry(
+              key.toString(),
+              int.tryParse(value?.toString() ?? '0') ?? 0,
+            ),
+          ),
     );
   }
 }
