@@ -234,8 +234,19 @@ class FirestoreService {
 
         filteredMatches.sort((a, b) => b.playedAt.compareTo(a.playedAt));
 
-        final previousMatches =
-            filteredMatches.length > 1 ? filteredMatches.sublist(1) : <MatchModel>[];
+        List<MatchModel> previousMatches;
+        if (filteredMatches.length >= 2) {
+          final latestDate = filteredMatches.first.playedAt;
+          previousMatches = filteredMatches
+              .where((m) => m.playedAt.isBefore(latestDate))
+              .toList();
+          // Fallback: if all matches share the same timestamp, drop the last match
+          if (previousMatches.isEmpty) {
+            previousMatches = filteredMatches.sublist(1);
+          }
+        } else {
+          previousMatches = <MatchModel>[];
+        }
 
         final currentTable = _buildLeagueTable(
           players: playersInLeague,
@@ -302,8 +313,18 @@ class FirestoreService {
 
     filteredMatches.sort((a, b) => b.playedAt.compareTo(a.playedAt));
 
-    final previousMatches =
-        filteredMatches.length > 1 ? filteredMatches.sublist(1) : <MatchModel>[];
+    List<MatchModel> previousMatches;
+    if (filteredMatches.length >= 2) {
+      final latestDate = filteredMatches.first.playedAt;
+      previousMatches = filteredMatches
+          .where((m) => m.playedAt.isBefore(latestDate))
+          .toList();
+      if (previousMatches.isEmpty) {
+        previousMatches = filteredMatches.sublist(1);
+      }
+    } else {
+      previousMatches = <MatchModel>[];
+    }
 
     final currentTable = _buildLeagueTable(
       players: playersInLeague,
@@ -640,6 +661,9 @@ class FirestoreService {
     required List<LeagueTableRow> currentTable,
     required List<LeagueTableRow> previousTable,
   }) {
+    // Only show movement if previous table has meaningful data (at least one player with points).
+    final hasPreviousData = previousTable.any((r) => r.points > 0);
+
     final previousPositionById = <String, int>{
       for (int i = 0; i < previousTable.length; i++) previousTable[i].playerId: i + 1,
     };
@@ -649,7 +673,11 @@ class FirestoreService {
       final currentPos = i + 1;
       final previousPos = previousPositionById[row.playerId];
 
-      row.movement = previousPos == null ? 0 : previousPos - currentPos;
+      if (!hasPreviousData || previousPos == null) {
+        row.movement = 0;
+      } else {
+        row.movement = previousPos - currentPos;
+      }
 
       if (i == 0) {
         row.pointsToNext = 0;
