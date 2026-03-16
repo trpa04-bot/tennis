@@ -17,27 +17,16 @@ class PlayerDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCompact = MediaQuery.of(context).size.width < 420;
-
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: Text(playerName),
           centerTitle: true,
-          bottom: TabBar(
-            isScrollable: isCompact,
-            tabAlignment: isCompact ? TabAlignment.start : TabAlignment.fill,
-            labelStyle: TextStyle(
-              fontSize: isCompact ? 15 : 17,
-              fontWeight: FontWeight.w600,
-            ),
-            unselectedLabelStyle: TextStyle(
-              fontSize: isCompact ? 15 : 17,
-              fontWeight: FontWeight.w500,
-            ),
-            labelPadding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 8),
-            tabs: const [
+          bottom: const TabBar(
+            isScrollable: false,
+            tabAlignment: TabAlignment.fill,
+            tabs: [
               Tab(icon: Icon(Icons.bar_chart_outlined), text: 'Pregled'),
               Tab(icon: Icon(Icons.show_chart_outlined), text: 'Statistike'),
               Tab(icon: Icon(Icons.sports_tennis_outlined), text: 'Mečevi'),
