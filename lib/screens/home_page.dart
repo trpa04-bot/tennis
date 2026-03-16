@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -281,9 +279,6 @@ class ViewerWelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final horizontalPadding = screenWidth < 600 ? 16.0 : 24.0;
-    final topPadding = screenWidth < 600 ? 8.0 : 20.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -318,126 +313,89 @@ class ViewerWelcomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            'assets/photo_2026-03-16_16-23-22.jpg',
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-            filterQuality: FilterQuality.low,
-            errorBuilder: (context, error, stackTrace) =>
-                Container(
-                  color: colorScheme.surface,
-                ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.surface,
+              colorScheme.primaryContainer.withValues(alpha: 0.28),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.08),
-            ),
-          ),
-          ListView(
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              topPadding,
-              horizontalPadding,
-              20,
-            ),
-            children: [
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          color: colorScheme.surface.withValues(alpha: 0.30),
-                          border: Border.all(
-                            color: colorScheme.onSurface.withValues(alpha: 0.08),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.10),
-                              blurRadius: 18,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 28,
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _viewerLogo(context),
-                              const SizedBox(height: 18),
-                              Text(
-                                'Dobrodošli u aplikaciju',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'TK JOGI',
-                                style: TextStyle(
-                                  fontSize: 34,
-                                  fontWeight: FontWeight.w800,
-                                  color: colorScheme.onSurface,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Teniska liga Zagreb',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'App developed by Trpimir Šugar',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '"Zbog ljubavi prema tenisu i sportu"',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontStyle: FontStyle.italic,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 20),
-                              Divider(color: colorScheme.outlineVariant),
-                              const SizedBox(height: 12),
-                              const Text(
-                                'Pregledaj igrače, mečeve i tablicu lige.',
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
+        ),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            Card(
+              elevation: 8,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _viewerLogo(context),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Dobrodošli u aplikaciju',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'TK JOGI',
+                      style: TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Teniska liga Zagreb',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'App developed by Trpimir Šugar',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '"Zbog ljubavi prema tenisu i sportu"',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    Divider(color: colorScheme.outlineVariant),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Pregledaj igrače, mečeve i tablicu lige.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
