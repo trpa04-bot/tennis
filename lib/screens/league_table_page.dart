@@ -76,6 +76,35 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
     return const Text('-', style: TextStyle(color: Colors.grey));
   }
 
+  Future<void> _confirmResetTrend(BuildContext ctx) async {
+    final confirmed = await showDialog<bool>(
+      context: ctx,
+      builder: (dCtx) => AlertDialog(
+        title: const Text('Reset trend'),
+        content: const Text(
+          'Ovo će resetirati trend strelice za sve igrače. Od sada će se trend računati od trenutnih pozicija. Nastavi?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx, false),
+            child: const Text('Odustani'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dCtx, true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    await firestoreService.resetTrend();
+    if (!ctx.mounted) return;
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      const SnackBar(content: Text('Trend je resetiran!')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<LeagueTableRow>>(
@@ -88,6 +117,13 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
           appBar: AppBar(
             title: const Text('League Table'),
             centerTitle: true,
+            actions: [
+              IconButton(
+                tooltip: 'Reset trend',
+                icon: const Icon(Icons.restart_alt),
+                onPressed: () => _confirmResetTrend(context),
+              ),
+            ],
           ),
           body: Column(
             children: [
