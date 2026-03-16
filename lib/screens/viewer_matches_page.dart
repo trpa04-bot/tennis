@@ -76,11 +76,6 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
         '${date.year}';
   }
 
-  String _formatShortDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}.'
-        '${date.month.toString().padLeft(2, '0')}.';
-  }
-
   String _weekdayShort(DateTime date) {
     switch (date.weekday) {
       case DateTime.monday:
@@ -394,7 +389,7 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
                                 final isCompactCard =
                                     MediaQuery.of(context).size.width < 430;
                                 final metaText = isCompactCard
-                                    ? '${_weekdayShort(match.playedAt)} ${_formatShortDate(match.playedAt)}'
+                                  ? '${_weekdayShort(match.playedAt)} ${_formatDate(match.playedAt)}'
                                     : '${match.season} • ${_weekdayShort(match.playedAt)} ${_formatDate(match.playedAt)}';
 
                                 return Card(
