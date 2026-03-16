@@ -17,92 +17,121 @@ class PlayerDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(playerName),
-        centerTitle: true,
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('matches').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Text('Greška: ${snapshot.error}'),
-            );
-          }
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(playerName),
+          centerTitle: true,
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.bar_chart_outlined), text: 'Pregled'),
+              Tab(icon: Icon(Icons.show_chart_outlined), text: 'Statistike'),
+              Tab(icon: Icon(Icons.sports_tennis_outlined), text: 'Mečevi'),
+            ],
+          ),
+        ),
+        body: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('matches').snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(child: Text('Greška: ${snapshot.error}'));
+            }
 
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('players').snapshots(),
-            builder: (context, playersSnapshot) {
-              if (playersSnapshot.hasError) {
-                return Center(
-                  child: Text('Greška: ${playersSnapshot.error}'),
+            return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('players')
+                  .snapshots(),
+              builder: (context, playersSnapshot) {
+                if (playersSnapshot.hasError) {
+                  return Center(
+                    child: Text('Greška: ${playersSnapshot.error}'),
+                  );
+                }
+
+                if (playersSnapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final docs = snapshot.data?.docs ?? [];
+                final playerDocs = playersSnapshot.data?.docs ?? [];
+
+                final playersById = <String, Player>{
+                  for (final doc in playerDocs)
+                    doc.id: Player.fromMap(
+                      Map<String, dynamic>.from(doc.data() as Map),
+                      id: doc.id,
+                    ),
+                };
+
+                final matches =
+                    docs
+                        .map((doc) {
+                          final data = Map<String, dynamic>.from(
+                            doc.data() as Map,
+                          );
+                          return MatchModel.fromMap(data, id: doc.id);
+                        })
+                        .where((m) => _involvesPlayer(m))
+                        .where((m) => _isFinished(m))
+                        .toList()
+                      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+
+                final stats = _PlayerStats.fromMatches(
+                  playerId: playerId,
+                  playerName: playerName,
+                  matches: matches,
                 );
-              }
 
-              if (playersSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
-              }
+                final playerAchievements =
+                    playersById[playerId]?.achievements ?? <String, int>{};
 
-              final docs = snapshot.data?.docs ?? [];
-              final playerDocs = playersSnapshot.data?.docs ?? [];
-
-              final playersById = <String, Player>{
-                for (final doc in playerDocs)
-                  doc.id: Player.fromMap(
-                    Map<String, dynamic>.from(doc.data() as Map),
-                    id: doc.id,
-                  ),
-              };
-
-              final matches = docs
-                  .map((doc) {
-                    final data = Map<String, dynamic>.from(doc.data() as Map);
-                    return MatchModel.fromMap(data, id: doc.id);
-                  })
-                  .where((m) => _involvesPlayer(m))
-                  .where((m) => _isFinished(m))
-                  .toList()
-                ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
-
-              final stats = _PlayerStats.fromMatches(
-                playerId: playerId,
-                playerName: playerName,
-                matches: matches,
-              );
-
-              final playerAchievements =
-                  playersById[playerId]?.achievements ?? <String, int>{};
-
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
+                return TabBarView(
                   children: [
-                    _heroCard(context, stats),
-                    const SizedBox(height: 16),
-                    _atpStyleCard(context, stats, matches),
-                    const SizedBox(height: 16),
-                    _progressChartCard(context, matches),
-                    const SizedBox(height: 16),
-                    _achievementsCard(context, playerAchievements),
-                    const SizedBox(height: 16),
-                    _mainStatsGrid(stats),
-                    const SizedBox(height: 16),
-                    _recentMatchesCard(matches, playersById),
+                    // Pregled — hero + ATP overview
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          _heroCard(context, stats),
+                          const SizedBox(height: 16),
+                          _atpStyleCard(context, stats, matches),
+                        ],
+                      ),
+                    ),
+                    // Statistike — progress chart + stats grid
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          _progressChartCard(context, matches),
+                          const SizedBox(height: 16),
+                          _mainStatsGrid(context, stats),
+                        ],
+                      ),
+                    ),
+                    // Mečevi — achievements + recent matches
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          _achievementsCard(context, playerAchievements),
+                          const SizedBox(height: 16),
+                          _recentMatchesCard(matches, playersById),
+                        ],
+                      ),
+                    ),
                   ],
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -158,9 +187,9 @@ class PlayerDetailsPage extends StatelessWidget {
             const SizedBox(height: 14),
             Text(
               playerName,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             Text('${stats.wins}W • ${stats.losses}L • ${stats.played} matches'),
@@ -170,7 +199,7 @@ class PlayerDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _mainStatsGrid(_PlayerStats stats) {
+  Widget _mainStatsGrid(BuildContext context, _PlayerStats stats) {
     final items = [
       _StatItem('Points', '${stats.points}'),
       _StatItem('Wins', '${stats.wins}'),
@@ -180,15 +209,19 @@ class PlayerDetailsPage extends StatelessWidget {
       _StatItem('Played', '${stats.played}'),
     ];
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final cols = screenWidth > 480 ? 3 : 2;
+    final ratio = screenWidth > 480 ? 2.6 : 2.1;
+
     return GridView.builder(
       itemCount: items.length,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: cols,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 2.2,
+        childAspectRatio: ratio,
       ),
       itemBuilder: (context, index) {
         final item = items[index];
@@ -223,15 +256,15 @@ class PlayerDetailsPage extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final recent = matches.take(5).toList();
 
-    final recentForm = recent
-        .map((m) => _didPlayerWin(m) ? 'W' : 'L')
-        .toList();
+    final recentForm = recent.map((m) => _didPlayerWin(m) ? 'W' : 'L').toList();
 
     final winRate = stats.played == 0 ? 0.0 : stats.wins / stats.played;
     final setDenominator = (stats.setsWon + stats.setsLost).toDouble();
     final setRate = setDenominator == 0 ? 0.0 : stats.setsWon / setDenominator;
     final gameDenominator = (stats.gamesWon + stats.gamesLost).toDouble();
-    final gameRate = gameDenominator == 0 ? 0.0 : stats.gamesWon / gameDenominator;
+    final gameRate = gameDenominator == 0
+        ? 0.0
+        : stats.gamesWon / gameDenominator;
 
     return Card(
       elevation: 3,
@@ -258,8 +291,8 @@ class PlayerDetailsPage extends StatelessWidget {
                 Text(
                   'ATP-style Performance',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -291,23 +324,11 @@ class PlayerDetailsPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            _performanceBar(
-              context,
-              label: 'Match dominance',
-              value: winRate,
-            ),
+            _performanceBar(context, label: 'Match dominance', value: winRate),
             const SizedBox(height: 10),
-            _performanceBar(
-              context,
-              label: 'Set control',
-              value: setRate,
-            ),
+            _performanceBar(context, label: 'Set control', value: setRate),
             const SizedBox(height: 10),
-            _performanceBar(
-              context,
-              label: 'Game control',
-              value: gameRate,
-            ),
+            _performanceBar(context, label: 'Game control', value: gameRate),
           ],
         ),
       ),
@@ -332,15 +353,9 @@ class PlayerDetailsPage extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-          ),
+          Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
           const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -360,10 +375,7 @@ class PlayerDetailsPage extends StatelessWidget {
         const SizedBox(height: 6),
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: safeValue,
-            minHeight: 10,
-          ),
+          child: LinearProgressIndicator(value: safeValue, minHeight: 10),
         ),
       ],
     );
@@ -387,8 +399,8 @@ class PlayerDetailsPage extends StatelessWidget {
                 Text(
                   'Points Progress',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -397,9 +409,7 @@ class PlayerDetailsPage extends StatelessWidget {
               points.isEmpty
                   ? 'Graf će se prikazati nakon prvog odigranog meča.'
                   : 'Kumulativni bodovi kroz vrijeme',
-              style: TextStyle(
-                color: scheme.onSurface.withValues(alpha: 0.7),
-              ),
+              style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 16),
             if (points.isEmpty)
@@ -427,20 +437,12 @@ class PlayerDetailsPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              Row(
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
                 children: [
-                  _progressMetaChip(
-                    context,
-                    'Start',
-                    '${points.first.value}',
-                  ),
-                  const SizedBox(width: 10),
-                  _progressMetaChip(
-                    context,
-                    'Now',
-                    '${points.last.value}',
-                  ),
-                  const SizedBox(width: 10),
+                  _progressMetaChip(context, 'Start', '${points.first.value}'),
+                  _progressMetaChip(context, 'Now', '${points.last.value}'),
                   _progressMetaChip(
                     context,
                     'Delta',
@@ -486,7 +488,8 @@ class PlayerDetailsPage extends StatelessWidget {
   }
 
   List<_ProgressPoint> _buildProgressPoints(List<MatchModel> matches) {
-    final ordered = matches.toList()..sort((a, b) => a.playedAt.compareTo(b.playedAt));
+    final ordered = matches.toList()
+      ..sort((a, b) => a.playedAt.compareTo(b.playedAt));
     var cumulativePoints = 0;
     final points = <_ProgressPoint>[];
 
@@ -496,8 +499,12 @@ class PlayerDetailsPage extends StatelessWidget {
 
       final isP1 = _isPlayer1(match);
       final didWin = _didPlayerWin(match);
-      final playerSetsWon = isP1 ? parsed.player1SetsWon : parsed.player2SetsWon;
-      final playerSetsLost = isP1 ? parsed.player2SetsWon : parsed.player1SetsWon;
+      final playerSetsWon = isP1
+          ? parsed.player1SetsWon
+          : parsed.player2SetsWon;
+      final playerSetsLost = isP1
+          ? parsed.player2SetsWon
+          : parsed.player1SetsWon;
 
       var matchPoints = 0;
       if (didWin) {
@@ -534,10 +541,7 @@ class PlayerDetailsPage extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Recent matches',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 12),
@@ -550,11 +554,7 @@ class PlayerDetailsPage extends StatelessWidget {
               ...recent.map((match) {
                 final didWin = _didPlayerWin(match);
                 final isP1 = _isPlayer1(match);
-                final opponent = _opponentName(
-                  match,
-                  isP1,
-                  playersById,
-                );
+                final opponent = _opponentName(match, isP1, playersById);
 
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -605,8 +605,8 @@ class PlayerDetailsPage extends StatelessWidget {
                 Text(
                   'Achievements',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -615,11 +615,7 @@ class PlayerDetailsPage extends StatelessWidget {
               spacing: 16,
               runSpacing: 16,
               children: _kAchievements.map((def) {
-                return _achievementBadge(
-                  context,
-                  def,
-                  earned[def.id] ?? 0,
-                );
+                return _achievementBadge(context, def, earned[def.id] ?? 0);
               }).toList(),
             ),
           ],
@@ -682,7 +678,10 @@ class PlayerDetailsPage extends StatelessWidget {
                       : Colors.grey.withValues(alpha: 0.6),
                 ),
               ),
-              if (!isEarned) ...[const SizedBox(height: 4), const Icon(Icons.lock_outline, size: 12, color: Colors.grey)],
+              if (!isEarned) ...[
+                const SizedBox(height: 4),
+                const Icon(Icons.lock_outline, size: 12, color: Colors.grey),
+              ],
             ],
           ),
         ),
@@ -840,11 +839,7 @@ class _ParsedMatch {
   });
 
   factory _ParsedMatch.invalid() {
-    return _ParsedMatch(
-      isValid: false,
-      player1SetsWon: 0,
-      player2SetsWon: 0,
-    );
+    return _ParsedMatch(isValid: false, player1SetsWon: 0, player2SetsWon: 0);
   }
 }
 
@@ -908,8 +903,12 @@ class _PlayerStats {
         losses++;
       }
 
-      final playerSetsWon = isP1 ? parsed.player1SetsWon : parsed.player2SetsWon;
-      final playerSetsLost = isP1 ? parsed.player2SetsWon : parsed.player1SetsWon;
+      final playerSetsWon = isP1
+          ? parsed.player1SetsWon
+          : parsed.player2SetsWon;
+      final playerSetsLost = isP1
+          ? parsed.player2SetsWon
+          : parsed.player1SetsWon;
       setsWon += playerSetsWon;
       setsLost += playerSetsLost;
 
@@ -926,7 +925,6 @@ class _PlayerStats {
       // Super tie-break je set odlučivanja, ne ulazi u game statistiku.
       // Zato je games obračun samo iz set1 i set2.
       // (Namjerno bez super tie-break poena.)
-
     }
 
     return _PlayerStats(
@@ -1039,10 +1037,7 @@ class _GameScore {
   final int player1Games;
   final int player2Games;
 
-  _GameScore({
-    required this.player1Games,
-    required this.player2Games,
-  });
+  _GameScore({required this.player1Games, required this.player2Games});
 }
 
 class _ProgressPoint {
@@ -1096,7 +1091,11 @@ class _ProgressChartPainter extends CustomPainter {
 
     for (var i = 0; i < 4; i++) {
       final y = topPad + (chartHeight * i / 3);
-      canvas.drawLine(Offset(leftPad, y), Offset(size.width - rightPad, y), gridPaint);
+      canvas.drawLine(
+        Offset(leftPad, y),
+        Offset(size.width - rightPad, y),
+        gridPaint,
+      );
     }
 
     final path = Path();
@@ -1144,7 +1143,11 @@ class _ProgressChartPainter extends CustomPainter {
       canvas.drawCircle(offset, 4, dotPaint);
     }
 
-    final labelsToDraw = <int>{0, if (points.length > 2) points.length ~/ 2, points.length - 1};
+    final labelsToDraw = <int>{
+      0,
+      if (points.length > 2) points.length ~/ 2,
+      points.length - 1,
+    };
     for (final index in labelsToDraw) {
       final offset = pointOffset(index);
       _drawText(
@@ -1156,7 +1159,12 @@ class _ProgressChartPainter extends CustomPainter {
     }
 
     _drawText(canvas, '$maxValue', const Offset(0, 6), textColor);
-    _drawText(canvas, '$minValue', Offset(0, topPad + chartHeight - 8), textColor);
+    _drawText(
+      canvas,
+      '$minValue',
+      Offset(0, topPad + chartHeight - 8),
+      textColor,
+    );
   }
 
   void _drawText(Canvas canvas, String text, Offset offset, Color color) {
@@ -1197,7 +1205,17 @@ class _AchievementDef {
 const _kAchievements = [
   _AchievementDef('first_win', '🏆', 'First Win', 'First ever win'),
   _AchievementDef('win_streak_3', '🔥', '3 in a Row', '3 consecutive wins'),
-  _AchievementDef('comeback_king', '💪', 'Comeback King', 'Won after losing set 1'),
+  _AchievementDef(
+    'comeback_king',
+    '💪',
+    'Comeback King',
+    'Won after losing set 1',
+  ),
   _AchievementDef('perfect_match', '🎯', 'Perfect Match', '2:0 victory'),
-  _AchievementDef('tiebreak_hero', '⚡', 'Tie-Break Hero', 'Won in super tie-break'),
+  _AchievementDef(
+    'tiebreak_hero',
+    '⚡',
+    'Tie-Break Hero',
+    'Won in super tie-break',
+  ),
 ];
