@@ -17,7 +17,12 @@ class _AuthGatePageState extends State<AuthGatePage> {
   @override
   void initState() {
     super.initState();
-    _initAnonymous();
+    // Returning users already signed in - skip async wait entirely.
+    if (AuthService.instance.currentUser != null) {
+      initialized = true;
+    } else {
+      _initAnonymous();
+    }
   }
 
   Future<void> _initAnonymous() async {
