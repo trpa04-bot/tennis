@@ -211,7 +211,7 @@ class PlayerDetailsPage extends StatelessWidget {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final cols = screenWidth > 480 ? 3 : 2;
-    final ratio = screenWidth > 480 ? 2.6 : 2.1;
+    final ratio = screenWidth > 480 ? 2.35 : 1.68;
 
     return GridView.builder(
       itemCount: items.length,
@@ -227,17 +227,32 @@ class PlayerDetailsPage extends StatelessWidget {
         final item = items[index];
         return Card(
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(item.title, style: const TextStyle(color: Colors.grey)),
-                const SizedBox(height: 8),
                 Text(
-                  item.value,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        item.value,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
