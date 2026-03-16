@@ -157,78 +157,108 @@ class ArchivedPlayersPage extends StatelessWidget {
                     return Card(
                       margin: const EdgeInsets.symmetric(vertical: 8),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: ListTile(
-                          leading: const CircleAvatar(
-                            child: Icon(Icons.ac_unit_outlined),
-                          ),
-                          title: Text(name),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${_leagueLabel(league)} • Rating $rating'),
-                              Text('Zamrznut: ${_formatStatusDate(frozenAt)}'),
-                            ],
-                          ),
-                          trailing: Wrap(
-                            spacing: 4,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.person_outline),
-                                tooltip: 'Profil igrača',
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => PlayerDetailsPage(
-                                      playerId: docId,
-                                      playerName: name,
+                        padding: const EdgeInsets.fromLTRB(12, 12, 4, 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const CircleAvatar(
+                                  child: Icon(Icons.ac_unit_outlined),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        name,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium,
+                                      ),
+                                      Text(
+                                        '${_leagueLabel(league)} • Rating $rating',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall,
+                                      ),
+                                      Text(
+                                        'Zamrznut: ${_formatStatusDate(frozenAt)}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton.icon(
+                                  icon: const Icon(Icons.person_outline,
+                                      size: 18),
+                                  label: const Text('Profil'),
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PlayerDetailsPage(
+                                        playerId: docId,
+                                        playerName: name,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.lock_open_outlined),
-                                tooltip: 'Odmrzni',
-                                onPressed: () async {
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    builder: (_) => AlertDialog(
-                                      title: const Text('Odmrzni igrača'),
-                                      content: Text(
-                                        'Jesi li siguran da želiš odmrznuti $name?',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: const Text('Odustani'),
+                                const SizedBox(width: 4),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.lock_open_outlined,
+                                      size: 18),
+                                  label: const Text('Odmrzni'),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: const Text('Odmrzni igrača'),
+                                        content: Text(
+                                          'Jesi li siguran da želiš odmrznuti $name?',
                                         ),
-                                        ElevatedButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          child: const Text('Odmrzni'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  if (confirm == true) {
-                                    await _firestoreService
-                                        .unfreezePlayer(docId);
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            '$name je odmrznut.',
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('Odustani'),
                                           ),
-                                        ),
-                                      );
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: const Text('Odmrzni'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
+                                      await _firestoreService
+                                          .unfreezePlayer(docId);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              '$name je odmrznut.',
+                                            ),
+                                          ),
+                                        );
+                                      }
                                     }
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     );
