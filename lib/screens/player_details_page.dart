@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/match_model.dart';
@@ -87,6 +89,8 @@ class PlayerDetailsPage extends StatelessWidget {
                     _heroCard(context, stats),
                     const SizedBox(height: 16),
                     _atpStyleCard(context, stats, matches),
+                    const SizedBox(height: 16),
+                    _progressChartCard(context, matches),
                     const SizedBox(height: 16),
                     _achievementsCard(context, playerAchievements),
                     const SizedBox(height: 16),
@@ -365,6 +369,156 @@ class PlayerDetailsPage extends StatelessWidget {
     );
   }
 
+  Widget _progressChartCard(BuildContext context, List<MatchModel> matches) {
+    final points = _buildProgressPoints(matches);
+    final scheme = Theme.of(context).colorScheme;
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.show_chart),
+                const SizedBox(width: 8),
+                Text(
+                  'Points Progress',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              points.isEmpty
+                  ? 'Graf će se prikazati nakon prvog odigranog meča.'
+                  : 'Kumulativni bodovi kroz vrijeme',
+              style: TextStyle(
+                color: scheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (points.isEmpty)
+              Container(
+                height: 180,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                ),
+                child: const Text('Nema dovoljno podataka za graf'),
+              )
+            else ...[
+              SizedBox(
+                height: 180,
+                width: double.infinity,
+                child: CustomPaint(
+                  painter: _ProgressChartPainter(
+                    points: points,
+                    lineColor: scheme.primary,
+                    fillColor: scheme.primary.withValues(alpha: 0.12),
+                    gridColor: scheme.outlineVariant.withValues(alpha: 0.4),
+                    textColor: scheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _progressMetaChip(
+                    context,
+                    'Start',
+                    '${points.first.value}',
+                  ),
+                  const SizedBox(width: 10),
+                  _progressMetaChip(
+                    context,
+                    'Now',
+                    '${points.last.value}',
+                  ),
+                  const SizedBox(width: 10),
+                  _progressMetaChip(
+                    context,
+                    'Delta',
+                    '+${points.last.value - points.first.value}',
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _progressMetaChip(BuildContext context, String label, String value) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: DefaultTextStyle.of(context).style,
+          children: [
+            TextSpan(
+              text: '$label ',
+              style: TextStyle(
+                color: scheme.onSurface.withValues(alpha: 0.65),
+                fontSize: 12,
+              ),
+            ),
+            TextSpan(
+              text: value,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<_ProgressPoint> _buildProgressPoints(List<MatchModel> matches) {
+    final ordered = matches.toList()..sort((a, b) => a.playedAt.compareTo(b.playedAt));
+    var cumulativePoints = 0;
+    final points = <_ProgressPoint>[];
+
+    for (final match in ordered) {
+      final parsed = _parseMatch(match);
+      if (!parsed.isValid) continue;
+
+      final isP1 = _isPlayer1(match);
+      final didWin = _didPlayerWin(match);
+      final playerSetsWon = isP1 ? parsed.player1SetsWon : parsed.player2SetsWon;
+      final playerSetsLost = isP1 ? parsed.player2SetsWon : parsed.player1SetsWon;
+
+      var matchPoints = 0;
+      if (didWin) {
+        matchPoints = (playerSetsWon == 2 && playerSetsLost == 0) ? 3 : 2;
+      } else if (playerSetsWon == 1 && playerSetsLost == 2) {
+        matchPoints = 1;
+      }
+
+      cumulativePoints += matchPoints;
+      points.add(
+        _ProgressPoint(
+          label: _formatShortDate(match.playedAt),
+          value: cumulativePoints,
+          date: match.playedAt,
+        ),
+      );
+    }
+
+    return points;
+  }
+
   Widget _recentMatchesCard(
     List<MatchModel> matches,
     Map<String, Player> playersById,
@@ -594,6 +748,10 @@ class PlayerDetailsPage extends StatelessWidget {
     return '${date.day.toString().padLeft(2, '0')}.'
         '${date.month.toString().padLeft(2, '0')}.'
         '${date.year}';
+  }
+
+  String _formatShortDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}';
   }
 
   List<int>? _parseScore(String score) {
@@ -885,6 +1043,146 @@ class _GameScore {
     required this.player1Games,
     required this.player2Games,
   });
+}
+
+class _ProgressPoint {
+  final String label;
+  final int value;
+  final DateTime date;
+
+  const _ProgressPoint({
+    required this.label,
+    required this.value,
+    required this.date,
+  });
+}
+
+class _ProgressChartPainter extends CustomPainter {
+  final List<_ProgressPoint> points;
+  final Color lineColor;
+  final Color fillColor;
+  final Color gridColor;
+  final Color textColor;
+
+  const _ProgressChartPainter({
+    required this.points,
+    required this.lineColor,
+    required this.fillColor,
+    required this.gridColor,
+    required this.textColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const leftPad = 10.0;
+    const rightPad = 10.0;
+    const topPad = 12.0;
+    const bottomPad = 28.0;
+    final chartWidth = size.width - leftPad - rightPad;
+    final chartHeight = size.height - topPad - bottomPad;
+
+    if (chartWidth <= 0 || chartHeight <= 0 || points.isEmpty) {
+      return;
+    }
+
+    final maxValue = points.map((p) => p.value).reduce((a, b) => a > b ? a : b);
+    final minValue = points.map((p) => p.value).reduce((a, b) => a < b ? a : b);
+    final range = (maxValue - minValue).toDouble();
+    final safeRange = range == 0 ? 1.0 : range;
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+
+    for (var i = 0; i < 4; i++) {
+      final y = topPad + (chartHeight * i / 3);
+      canvas.drawLine(Offset(leftPad, y), Offset(size.width - rightPad, y), gridPaint);
+    }
+
+    final path = Path();
+    final fillPath = Path();
+    final dotPaint = Paint()..color = lineColor;
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final fillPaint = Paint()
+      ..color = fillColor
+      ..style = PaintingStyle.fill;
+
+    Offset pointOffset(int index) {
+      final x = points.length == 1
+          ? leftPad + (chartWidth / 2)
+          : leftPad + (chartWidth * index / (points.length - 1));
+      final normalized = (points[index].value - minValue) / safeRange;
+      final y = topPad + chartHeight - (normalized * chartHeight);
+      return Offset(x, y);
+    }
+
+    final first = pointOffset(0);
+    path.moveTo(first.dx, first.dy);
+    fillPath.moveTo(first.dx, topPad + chartHeight);
+    fillPath.lineTo(first.dx, first.dy);
+
+    for (var i = 1; i < points.length; i++) {
+      final offset = pointOffset(i);
+      path.lineTo(offset.dx, offset.dy);
+      fillPath.lineTo(offset.dx, offset.dy);
+    }
+
+    final last = pointOffset(points.length - 1);
+    fillPath.lineTo(last.dx, topPad + chartHeight);
+    fillPath.close();
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(path, linePaint);
+
+    for (var i = 0; i < points.length; i++) {
+      final offset = pointOffset(i);
+      canvas.drawCircle(offset, 4, dotPaint);
+    }
+
+    final labelsToDraw = <int>{0, if (points.length > 2) points.length ~/ 2, points.length - 1};
+    for (final index in labelsToDraw) {
+      final offset = pointOffset(index);
+      _drawText(
+        canvas,
+        points[index].label,
+        Offset(offset.dx - 14, size.height - 20),
+        textColor,
+      );
+    }
+
+    _drawText(canvas, '$maxValue', const Offset(0, 6), textColor);
+    _drawText(canvas, '$minValue', Offset(0, topPad + chartHeight - 8), textColor);
+  }
+
+  void _drawText(Canvas canvas, String text, Offset offset, Color color) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+
+    painter.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProgressChartPainter oldDelegate) {
+    return oldDelegate.points != points ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.fillColor != fillColor ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.textColor != textColor;
+  }
 }
 
 class _AchievementDef {
