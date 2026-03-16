@@ -128,6 +128,7 @@ class _ViewerHomePageState extends State<ViewerHomePage> {
     ViewerPlayersPage(),
     ViewerMatchesPage(),
     LeagueTablePage(),
+    _ActivityFeedPage(),
   ];
 
   @override
@@ -161,6 +162,11 @@ class _ViewerHomePageState extends State<ViewerHomePage> {
             icon: Icon(Icons.leaderboard_outlined),
             selectedIcon: Icon(Icons.leaderboard),
             label: 'Table',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.dynamic_feed_outlined),
+            selectedIcon: Icon(Icons.dynamic_feed),
+            label: 'Feed',
           ),
         ],
       ),
@@ -355,6 +361,38 @@ class ViewerWelcomePage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             const _ActivityFeedCard(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityFeedPage extends StatelessWidget {
+  const _ActivityFeedPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Activity Feed'),
+        centerTitle: true,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Theme.of(context).colorScheme.surface,
+              Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.18),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: const [
+            _ActivityFeedCard(),
           ],
         ),
       ),
