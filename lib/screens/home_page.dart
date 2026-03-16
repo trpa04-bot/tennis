@@ -324,50 +324,16 @@ class ViewerWelcomePage extends StatelessWidget {
           Image.asset(
             'assets/photo_2026-03-16_16-23-22.jpg',
             fit: BoxFit.cover,
+            alignment: Alignment.center,
             filterQuality: FilterQuality.low,
             errorBuilder: (context, error, stackTrace) =>
-                const SizedBox.shrink(),
+                Container(
+                  color: colorScheme.surface,
+                ),
           ),
           DecoratedBox(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  colorScheme.surface.withValues(alpha: 0.34),
-                  colorScheme.surface.withValues(alpha: 0.18),
-                  colorScheme.primaryContainer.withValues(alpha: 0.28),
-                ],
-                stops: const [0.0, 0.45, 1.0],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.black.withValues(alpha: 0.14),
-                  Colors.black.withValues(alpha: 0.06),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.25, 0.65],
-                begin: Alignment.topCenter,
-                end: Alignment.center,
-              ),
-            ),
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0, -0.55),
-                radius: 0.95,
-                colors: [
-                  Colors.black.withValues(alpha: 0.10),
-                  Colors.black.withValues(alpha: 0.04),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.38, 1.0],
-              ),
+              color: Colors.black.withValues(alpha: 0.08),
             ),
           ),
           ListView(
@@ -388,7 +354,7 @@ class ViewerWelcomePage extends StatelessWidget {
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(24),
-                          color: colorScheme.surface.withValues(alpha: 0.46),
+                          color: colorScheme.surface.withValues(alpha: 0.30),
                           border: Border.all(
                             color: colorScheme.onSurface.withValues(alpha: 0.08),
                           ),
