@@ -281,7 +281,7 @@ class ViewerWelcomePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TK JOGI'),
+        title: const SizedBox.shrink(),
         centerTitle: true,
         actions: [
           IconButton(
@@ -325,7 +325,7 @@ class ViewerWelcomePage extends StatelessWidget {
                     _viewerLogo(context),
                     const SizedBox(height: 18),
                     Text(
-                      'Dobrodošli',
+                      'Dobrodošli u aplikaciju',
                       style: TextStyle(
                         fontSize: 18,
                         color: colorScheme.onSurfaceVariant,
