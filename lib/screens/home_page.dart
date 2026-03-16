@@ -379,8 +379,6 @@ class ViewerWelcomePage extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            const _ActivityFeedCard(),
           ],
         ),
       ),
