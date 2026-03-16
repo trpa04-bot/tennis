@@ -674,18 +674,18 @@ class FirestoreService {
     final set1 = _parseScore(match.set1);
     final stb = _parseScore(match.superTieBreak);
 
-    final toGrant = <String>[];
+    final Map<String, dynamic> updates = {};
 
     // perfect_match: 2:0 victory
     if (winnerSets == 2 && loserSets == 0) {
-      toGrant.add('perfect_match');
+      updates['achievements.perfect_match'] = FieldValue.increment(1);
     }
 
     // tiebreak_hero: won the super tie-break to win the match
     if (stb != null) {
       final winnerWonStb = winnerIsP1 ? stb[0] > stb[1] : stb[1] > stb[0];
       if (winnerWonStb) {
-        toGrant.add('tiebreak_hero');
+        updates['achievements.tiebreak_hero'] = FieldValue.increment(1);
       }
     }
 
@@ -693,14 +693,12 @@ class FirestoreService {
     if (set1 != null) {
       final winnerLostSet1 = winnerIsP1 ? set1[1] > set1[0] : set1[0] > set1[1];
       if (winnerLostSet1) {
-        toGrant.add('comeback_king');
+        updates['achievements.comeback_king'] = FieldValue.increment(1);
       }
     }
 
-    if (toGrant.isNotEmpty) {
-      await players.doc(winnerId).update({
-        'achievements': FieldValue.arrayUnion(toGrant),
-      });
+    if (updates.isNotEmpty) {
+      await players.doc(winnerId).update(updates);
     }
 
     await _checkCumulativeAchievements(winnerId);
@@ -715,36 +713,38 @@ class FirestoreService {
         })
         .where((m) => m.player1Id == playerId || m.player2Id == playerId)
         .toList()
-      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+      ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
 
-    final toGrant = <String>[];
+    final Map<String, dynamic> updates = {};
 
-    final wins = playerMatches.where((m) {
-      final s = _parseSetWins(m);
-      return _resolveWinnerId(m, s) == playerId;
-    }).length;
-
-    // first_win: at least one win ever
-    if (wins >= 1) {
-      toGrant.add('first_win');
-    }
-
-    // win_streak_3: last 3 matches all wins
-    if (playerMatches.length >= 3) {
-      final last3 = playerMatches.take(3).toList();
-      final allWins = last3.every((m) {
-        final s = _parseSetWins(m);
-        return _resolveWinnerId(m, s) == playerId;
-      });
-      if (allWins) {
-        toGrant.add('win_streak_3');
+    // first_win: grant once only
+    final hasWin = playerMatches.any((m) => _resolveWinnerId(m, _parseSetWins(m)) == playerId);
+    if (hasWin) {
+      final playerDoc = await players.doc(playerId).get();
+      final currentAch = Map<String, dynamic>.from(
+        (playerDoc.data() as Map? ?? {})['achievements'] as Map? ?? {},
+      );
+      if ((currentAch['first_win'] as int? ?? 0) == 0) {
+        updates['achievements.first_win'] = 1;
       }
     }
 
-    if (toGrant.isNotEmpty) {
-      await players.doc(playerId).update({
-        'achievements': FieldValue.arrayUnion(toGrant),
-      });
+    // win_streak_3: trailing win streak divisible by 3 → new group of 3 completed
+    int trailingStreak = 0;
+    for (final m in playerMatches.reversed) {
+      final s = _parseSetWins(m);
+      if (_resolveWinnerId(m, s) == playerId) {
+        trailingStreak++;
+      } else {
+        break;
+      }
+    }
+    if (trailingStreak > 0 && trailingStreak % 3 == 0) {
+      updates['achievements.win_streak_3'] = FieldValue.increment(1);
+    }
+
+    if (updates.isNotEmpty) {
+      await players.doc(playerId).update(updates);
     }
   }
 
@@ -757,7 +757,7 @@ class FirestoreService {
       final data = Map<String, dynamic>.from(doc.data() as Map);
       return MatchModel.fromMap(data, id: doc.id);
     }).toList()
-      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+      ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
 
     final batch = _db.batch();
 
@@ -765,26 +765,28 @@ class FirestoreService {
       final playerId = playerDoc.id;
       final playerMatches = allMatches
           .where((m) => m.player1Id == playerId || m.player2Id == playerId)
-          .toList();
+          .toList(); // already sorted oldest first
 
-      final earned = <String>{};
+      final Map<String, int> earned = {};
 
-      // Cumulative: first_win, win_streak_3
-      final wins = playerMatches.where((m) {
-        final s = _parseSetWins(m);
-        return _resolveWinnerId(m, s) == playerId;
-      }).length;
+      // first_win
+      final hasWin = playerMatches.any((m) => _resolveWinnerId(m, _parseSetWins(m)) == playerId);
+      if (hasWin) earned['first_win'] = 1;
 
-      if (wins >= 1) earned.add('first_win');
-
-      if (playerMatches.length >= 3) {
-        final last3 = playerMatches.take(3).toList();
-        if (last3.every((m) => _resolveWinnerId(m, _parseSetWins(m)) == playerId)) {
-          earned.add('win_streak_3');
+      // win_streak_3: non-overlapping groups of 3 consecutive wins
+      int currentStreak = 0;
+      for (final m in playerMatches) {
+        if (_resolveWinnerId(m, _parseSetWins(m)) == playerId) {
+          currentStreak++;
+          if (currentStreak % 3 == 0) {
+            earned['win_streak_3'] = (earned['win_streak_3'] ?? 0) + 1;
+          }
+        } else {
+          currentStreak = 0;
         }
       }
 
-      // Per-match achievements
+      // Per-match achievements (counted)
       for (final match in playerMatches) {
         final sets = _parseSetWins(match);
         final winnerId = _resolveWinnerId(match, sets);
@@ -794,23 +796,25 @@ class FirestoreService {
         final winnerSets = winnerIsP1 ? sets.player1SetsWon : sets.player2SetsWon;
         final loserSets = winnerIsP1 ? sets.player2SetsWon : sets.player1SetsWon;
 
-        if (winnerSets == 2 && loserSets == 0) earned.add('perfect_match');
+        if (winnerSets == 2 && loserSets == 0) {
+          earned['perfect_match'] = (earned['perfect_match'] ?? 0) + 1;
+        }
 
         final stb = _parseScore(match.superTieBreak);
         if (stb != null) {
           final winnerWonStb = winnerIsP1 ? stb[0] > stb[1] : stb[1] > stb[0];
-          if (winnerWonStb) earned.add('tiebreak_hero');
+          if (winnerWonStb) earned['tiebreak_hero'] = (earned['tiebreak_hero'] ?? 0) + 1;
         }
 
         final set1 = _parseScore(match.set1);
         if (set1 != null) {
           final winnerLostSet1 = winnerIsP1 ? set1[1] > set1[0] : set1[0] > set1[1];
-          if (winnerLostSet1) earned.add('comeback_king');
+          if (winnerLostSet1) earned['comeback_king'] = (earned['comeback_king'] ?? 0) + 1;
         }
       }
 
       batch.update(players.doc(playerId), {
-        'achievements': earned.toList(),
+        'achievements': earned,
       });
     }
 

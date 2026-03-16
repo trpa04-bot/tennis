@@ -78,7 +78,7 @@ class PlayerDetailsPage extends StatelessWidget {
               );
 
               final playerAchievements =
-                  playersById[playerId]?.achievements ?? <String>[];
+                  playersById[playerId]?.achievements ?? <String, int>{};
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -437,7 +437,7 @@ class PlayerDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _achievementsCard(BuildContext context, List<String> earned) {
+  Widget _achievementsCard(BuildContext context, Map<String, int> earned) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -458,13 +458,13 @@ class PlayerDetailsPage extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
+              spacing: 16,
+              runSpacing: 16,
               children: _kAchievements.map((def) {
                 return _achievementBadge(
                   context,
                   def,
-                  earned.contains(def.id),
+                  earned[def.id] ?? 0,
                 );
               }).toList(),
             ),
@@ -477,54 +477,82 @@ class PlayerDetailsPage extends StatelessWidget {
   Widget _achievementBadge(
     BuildContext context,
     _AchievementDef def,
-    bool earned,
+    int count,
   ) {
     final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 130,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: earned
-            ? scheme.primaryContainer.withValues(alpha: 0.5)
-            : Colors.grey.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: earned
-              ? scheme.primary.withValues(alpha: 0.5)
-              : Colors.grey.withValues(alpha: 0.3),
+    final isEarned = count > 0;
+    final showCount = isEarned && count > 1 && def.id != 'first_win';
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 130,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: isEarned
+                ? scheme.primaryContainer.withValues(alpha: 0.5)
+                : Colors.grey.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isEarned
+                  ? scheme.primary.withValues(alpha: 0.5)
+                  : Colors.grey.withValues(alpha: 0.3),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Opacity(
+                opacity: isEarned ? 1.0 : 0.3,
+                child: Text(def.emoji, style: const TextStyle(fontSize: 28)),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                def.label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isEarned ? scheme.primary : Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                def.desc,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isEarned
+                      ? scheme.onSurface.withValues(alpha: 0.7)
+                      : Colors.grey.withValues(alpha: 0.6),
+                ),
+              ),
+              if (!isEarned) ...[const SizedBox(height: 4), const Icon(Icons.lock_outline, size: 12, color: Colors.grey)],
+            ],
+          ),
         ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Opacity(
-            opacity: earned ? 1.0 : 0.3,
-            child: Text(def.emoji, style: const TextStyle(fontSize: 28)),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            def.label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: earned ? scheme.primary : Colors.grey,
+        if (showCount)
+          Positioned(
+            top: -8,
+            right: -8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                'x$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            def.desc,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 10,
-              color: earned
-                  ? scheme.onSurface.withValues(alpha: 0.7)
-                  : Colors.grey.withValues(alpha: 0.6),
-            ),
-          ),
-          if (!earned) ...[const SizedBox(height: 4), const Icon(Icons.lock_outline, size: 12, color: Colors.grey)],
-        ],
-      ),
+      ],
     );
   }
 

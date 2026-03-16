@@ -5,7 +5,7 @@ class Player {
   final String league;
   final bool frozen;
   final bool archived;
-  final List<String> achievements;
+  final Map<String, int> achievements;
 
   Player({
     this.id,
@@ -14,7 +14,7 @@ class Player {
     required this.league,
     this.frozen = false,
     this.archived = false,
-    this.achievements = const [],
+    this.achievements = const {},
   });
 
   Map<String, dynamic> toMap() {
@@ -40,7 +40,18 @@ class Player {
       frozen: frozenRaw == true || frozenRaw?.toString().toLowerCase() == 'true',
       archived:
           archivedRaw == true || archivedRaw?.toString().toLowerCase() == 'true',
-      achievements: List<String>.from(map['achievements'] ?? []),
+      achievements: () {
+        final raw = map['achievements'];
+        if (raw is Map) {
+          return Map<String, int>.from(
+            raw.map((k, v) => MapEntry(
+              k.toString(),
+              (v is int) ? v : int.tryParse(v.toString()) ?? 0,
+            )),
+          );
+        }
+        return <String, int>{};
+      }(),
     );
   }
 }
