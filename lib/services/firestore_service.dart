@@ -26,19 +26,8 @@ class FirestoreService {
 
   // PLAYERS
 
-  /// Get all players (for backward compatibility)
   Stream<List<Player>> getPlayers() {
     return players.snapshots().map(
-      (snapshot) => snapshot.docs.map((doc) {
-        final data = Map<String, dynamic>.from(doc.data() as Map);
-        return Player.fromMap(data, id: doc.id);
-      }).toList(),
-    );
-  }
-
-  /// Get limited players for pagination (default 50 per page)
-  Stream<List<Player>> getPlayersLimited({int limit = 50}) {
-    return players.limit(limit).snapshots().map(
       (snapshot) => snapshot.docs.map((doc) {
         final data = Map<String, dynamic>.from(doc.data() as Map);
         return Player.fromMap(data, id: doc.id);
@@ -193,20 +182,6 @@ class FirestoreService {
         return items;
       },
     );
-  }
-
-  /// Get limited matches for pagination (default 50 per page)
-  Stream<List<MatchModel>> getMatchesLimited({int limit = 50}) {
-    return matches
-        .orderBy('playedAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs.map((doc) {
-            final data = Map<String, dynamic>.from(doc.data() as Map);
-            return MatchModel.fromMap(data, id: doc.id);
-          }).toList(),
-        );
   }
 
   Future<void> addMatch(MatchModel match) async {
