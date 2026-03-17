@@ -852,9 +852,16 @@ class PlayerDetailsPage extends StatelessWidget {
             if (notPlayedOpponents.isEmpty)
               const Text('Nema, sve je odigrano.', style: TextStyle(color: Colors.red))
             else
-              Text(
-                notPlayedOpponents.join(', '),
-                style: const TextStyle(color: Colors.red),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: notPlayedOpponents
+                    .map(
+                      (name) => Text(
+                        '• $name',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    )
+                    .toList(),
               ),
             const SizedBox(height: 12),
             const Text(
@@ -868,9 +875,16 @@ class PlayerDetailsPage extends StatelessWidget {
             if (playedOpponents.isEmpty)
               const Text('Još nema odigranih mečeva.', style: TextStyle(color: Colors.green))
             else
-              Text(
-                playedOpponents.join(', '),
-                style: const TextStyle(color: Colors.green),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: playedOpponents
+                    .map(
+                      (name) => Text(
+                        '• $name',
+                        style: const TextStyle(color: Colors.green),
+                      ),
+                    )
+                    .toList(),
               ),
           ],
         ),
