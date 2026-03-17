@@ -189,10 +189,10 @@ class _PlayersPageState extends State<PlayersPage> {
                         initialValue: selectedLeague,
                         decoration: const InputDecoration(labelText: 'Liga'),
                         items: const [
-                          DropdownMenuItem(value: '1', child: Text('1. liga')),
-                          DropdownMenuItem(value: '2', child: Text('2. liga')),
-                          DropdownMenuItem(value: '3', child: Text('3. liga')),
-                          DropdownMenuItem(value: '4', child: Text('4. liga')),
+                          DropdownMenuItem(value: '1', child: Text('1.(ROLAND GARROS)')),
+                          DropdownMenuItem(value: '2', child: Text('2.(AUSTRALIAN OPEN)')),
+                          DropdownMenuItem(value: '3', child: Text('3.(WIMBLEDON)')),
+                          DropdownMenuItem(value: '4', child: Text('4.(US OPEN)')),
                         ],
                         onChanged: isSaving
                             ? null
@@ -407,13 +407,13 @@ class _PlayersPageState extends State<PlayersPage> {
   String _leagueLabel(String league) {
     switch (league) {
       case '1':
-        return '1. liga';
+        return '1.(ROLAND GARROS)';
       case '2':
-        return '2. liga';
+        return '2.(AUSTRALIAN OPEN)';
       case '3':
-        return '3. liga';
+        return '3.(WIMBLEDON)';
       case '4':
-        return '4. liga';
+        return '4.(US OPEN)';
       default:
         return league;
     }
@@ -421,10 +421,10 @@ class _PlayersPageState extends State<PlayersPage> {
 
   String _normalizeLeague(String league) {
     final value = league.trim().toLowerCase();
-    if (value == '1' || value == '1. liga') return '1';
-    if (value == '2' || value == '2. liga') return '2';
-    if (value == '3' || value == '3. liga') return '3';
-    if (value == '4' || value == '4. liga') return '4';
+    if (value == '1' || value == '1.(ROLAND GARROS)') return '1';
+    if (value == '2' || value == '2.(AUSTRALIAN OPEN)') return '2';
+    if (value == '3' || value == '3.(WIMBLEDON)') return '3';
+    if (value == '4' || value == '4.(US OPEN)') return '4';
     return league;
   }
 
@@ -566,10 +566,10 @@ class _PlayersPageState extends State<PlayersPage> {
                 alignment: WrapAlignment.center,
                 children: [
                   _leagueTabButton(value: 'all', label: 'All', icon: Icons.groups),
-                  _leagueTabButton(value: '1', label: '1. liga', icon: Icons.looks_one),
-                  _leagueTabButton(value: '2', label: '2. liga', icon: Icons.looks_two),
-                  _leagueTabButton(value: '3', label: '3. liga', icon: Icons.looks_3),
-                  _leagueTabButton(value: '4', label: '4. liga', icon: Icons.looks_4),
+                  _leagueTabButton(value: '1', label: '1.(ROLAND GARROS)', icon: Icons.looks_one),
+                  _leagueTabButton(value: '2', label: '2.(AUSTRALIAN OPEN)', icon: Icons.looks_two),
+                  _leagueTabButton(value: '3', label: '3.(WIMBLEDON)', icon: Icons.looks_3),
+                  _leagueTabButton(value: '4', label: '4.(US OPEN)', icon: Icons.looks_4),
                 ],
               ),
               const SizedBox(height: 8),

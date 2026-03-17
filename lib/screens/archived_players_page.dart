@@ -11,13 +11,13 @@ class ArchivedPlayersPage extends StatelessWidget {
   String _leagueLabel(String league) {
     switch (league) {
       case '1':
-        return '1. liga';
+        return '1.(ROLAND GARROS)';
       case '2':
-        return '2. liga';
+        return '2.(AUSTRALIAN OPEN)';
       case '3':
-        return '3. liga';
+        return '3.(WIMBLEDON)';
       case '4':
-        return '4. liga';
+        return '4.(US OPEN)';
       default:
         return league;
     }

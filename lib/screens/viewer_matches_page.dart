@@ -25,10 +25,10 @@ class _ViewerMatchesPageState extends State<ViewerMatchesPage> {
   String _normalizeLeague(String league) {
     final value = league.trim().toLowerCase();
 
-    if (value == '1' || value == '1. liga') return '1';
-    if (value == '2' || value == '2. liga') return '2';
-    if (value == '3' || value == '3. liga') return '3';
-    if (value == '4' || value == '4. liga') return '4';
+    if (value == '1' || value == '1.(ROLAND GARROS)') return '1';
+    if (value == '2' || value == '2.(AUSTRALIAN OPEN)') return '2';
+    if (value == '3' || value == '3.(WIMBLEDON)') return '3';
+    if (value == '4' || value == '4.(US OPEN)') return '4';
 
     return league;
   }

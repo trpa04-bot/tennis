@@ -26,10 +26,10 @@ class _SchedulePageState extends State<SchedulePage> {
   String _normalizeLeague(String league) {
     final value = league.trim().toLowerCase();
 
-    if (value == '1' || value == '1. liga') return '1';
-    if (value == '2' || value == '2. liga') return '2';
-    if (value == '3' || value == '3. liga') return '3';
-    if (value == '4' || value == '4. liga') return '4';
+    if (value == '1' || value == '1.(ROLAND GARROS)') return '1';
+    if (value == '2' || value == '2.(AUSTRALIAN OPEN)') return '2';
+    if (value == '3' || value == '3.(WIMBLEDON)') return '3';
+    if (value == '4' || value == '4.(US OPEN)') return '4';
 
     return league;
   }
@@ -37,13 +37,13 @@ class _SchedulePageState extends State<SchedulePage> {
   String _leagueLabel(String league) {
     switch (_normalizeLeague(league)) {
       case '1':
-        return '1. liga';
+        return '1.(ROLAND GARROS)';
       case '2':
-        return '2. liga';
+        return '2.(AUSTRALIAN OPEN)';
       case '3':
-        return '3. liga';
+        return '3.(WIMBLEDON)';
       case '4':
-        return '4. liga';
+        return '4.(US OPEN)';
       default:
         return league;
     }
@@ -302,10 +302,10 @@ class _SchedulePageState extends State<SchedulePage> {
                   DropdownButton<String>(
                     value: selectedLeague,
                     items: const [
-                      DropdownMenuItem(value: '1', child: Text('1. liga')),
-                      DropdownMenuItem(value: '2', child: Text('2. liga')),
-                      DropdownMenuItem(value: '3', child: Text('3. liga')),
-                      DropdownMenuItem(value: '4', child: Text('4. liga')),
+                      DropdownMenuItem(value: '1', child: Text('1.(ROLAND GARROS)')),
+                      DropdownMenuItem(value: '2', child: Text('2.(AUSTRALIAN OPEN)')),
+                      DropdownMenuItem(value: '3', child: Text('3.(WIMBLEDON)')),
+                      DropdownMenuItem(value: '4', child: Text('4.(US OPEN)')),
                     ],
                     onChanged: (value) {
                       if (value == null) return;

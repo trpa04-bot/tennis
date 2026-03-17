@@ -167,10 +167,10 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
                   DropdownButton<String>(
                     value: selectedLeague,
                     items: const [
-                      DropdownMenuItem(value: '1', child: Text('1. liga')),
-                      DropdownMenuItem(value: '2', child: Text('2. liga')),
-                      DropdownMenuItem(value: '3', child: Text('3. liga')),
-                      DropdownMenuItem(value: '4', child: Text('4. liga')),
+                      DropdownMenuItem(value: '1', child: Text('1.(ROLAND GARROS)')),
+                      DropdownMenuItem(value: '2', child: Text('2.(AUSTRALIAN OPEN)')),
+                      DropdownMenuItem(value: '3', child: Text('3.(WIMBLEDON)')),
+                      DropdownMenuItem(value: '4', child: Text('4.(US OPEN)')),
                     ],
                     onChanged: (value) {
                       if (value == null) return;
