@@ -12,93 +12,179 @@ class MatchesPage extends StatefulWidget {
 }
 
 class _MatchesPageState extends State<MatchesPage> {
+    String _winnerIdFromScores({
+      required MatchModel match,
+      required String set1,
+      required String set2,
+      required String superTieBreak,
+    }) {
+      int player1Sets = 0;
+      int player2Sets = 0;
+
+      for (final raw in [set1, set2]) {
+        final parsed = _parseSetScore(raw);
+        if (parsed == null) continue;
+        if (parsed[0] > parsed[1]) player1Sets++;
+        if (parsed[1] > parsed[0]) player2Sets++;
+      }
+
+      final parsedStb = _parseSetScore(superTieBreak);
+      if (parsedStb != null && player1Sets == player2Sets) {
+        if (parsedStb[0] > parsedStb[1]) player1Sets++;
+        if (parsedStb[1] > parsedStb[0]) player2Sets++;
+      }
+
+      if (player1Sets == player2Sets) return '';
+      return player1Sets > player2Sets ? match.player1Id : match.player2Id;
+    }
+
     void _editMatchDialog(MatchModel match) {
       final pageContext = context;
       final set1Controller = TextEditingController(text: match.set1);
       final set2Controller = TextEditingController(text: match.set2);
       final stbController = TextEditingController(text: match.superTieBreak);
       DateTime selectedDate = match.playedAt;
+      bool isSaving = false;
 
       showDialog(
         context: context,
         builder: (context) {
-          return AlertDialog(
-            title: const Text('Uredi meč'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: set1Controller,
-                    decoration: const InputDecoration(labelText: 'Set 1 (npr. 6:2)'),
-                  ),
-                  TextField(
-                    controller: set2Controller,
-                    decoration: const InputDecoration(labelText: 'Set 2 (npr. 3:6)'),
-                  ),
-                  TextField(
-                    controller: stbController,
-                    decoration: const InputDecoration(labelText: 'Super Tie Break (npr. 10:8)'),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text('Uredi meč'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Datum: '),
-                      Text('${selectedDate.day}.${selectedDate.month}.${selectedDate.year}'),
-                      IconButton(
-                        icon: const Icon(Icons.calendar_today),
-                        onPressed: () async {
-                          final now = DateTime.now();
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: selectedDate,
-                            firstDate: DateTime(now.year - 5),
-                            lastDate: DateTime(now.year + 1),
-                          );
-                          if (picked != null) {
-                            selectedDate = picked;
-                            setState(() {});
-                          }
-                        },
+                      TextField(
+                        controller: set1Controller,
+                        decoration: const InputDecoration(labelText: 'Set 1 (npr. 6:2)'),
+                      ),
+                      TextField(
+                        controller: set2Controller,
+                        decoration: const InputDecoration(labelText: 'Set 2 (npr. 3:6)'),
+                      ),
+                      TextField(
+                        controller: stbController,
+                        decoration: const InputDecoration(labelText: 'Super Tie Break (npr. 10:8)'),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Text('Datum: '),
+                          Expanded(
+                            child: Text(
+                              '${selectedDate.day}.${selectedDate.month}.${selectedDate.year}',
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.calendar_today),
+                            onPressed: isSaving
+                                ? null
+                                : () async {
+                                    final now = DateTime.now();
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: selectedDate,
+                                      firstDate: DateTime(now.year - 5),
+                                      lastDate: DateTime(now.year + 1),
+                                    );
+                                    if (picked != null) {
+                                      setDialogState(() {
+                                        selectedDate = picked;
+                                      });
+                                    }
+                                  },
+                          ),
+                        ],
                       ),
                     ],
                   ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isSaving ? null : () => Navigator.pop(context),
+                    child: const Text('Odustani'),
+                  ),
+                  ElevatedButton(
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final set1 = set1Controller.text.trim();
+                            final set2 = set2Controller.text.trim();
+                            final superTieBreak = stbController.text.trim();
+                            final winnerId = _winnerIdFromScores(
+                              match: match,
+                              set1: set1,
+                              set2: set2,
+                              superTieBreak: superTieBreak,
+                            );
+
+                            if (winnerId.isEmpty) {
+                              ScaffoldMessenger.of(pageContext).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Rezultat nije valjan. Provjeri setove i tie-break.'),
+                                ),
+                              );
+                              return;
+                            }
+
+                            setDialogState(() {
+                              isSaving = true;
+                            });
+
+                            final updatedMatch = MatchModel(
+                              id: match.id,
+                              player1Id: match.player1Id,
+                              player2Id: match.player2Id,
+                              player1Name: match.player1Name,
+                              player2Name: match.player2Name,
+                              set1: set1,
+                              set2: set2,
+                              superTieBreak: superTieBreak,
+                              season: match.season,
+                              playedAt: selectedDate,
+                              winnerId: winnerId,
+                            );
+                            try {
+                              await firestoreService.updateMatch(updatedMatch);
+                              await firestoreService.rebuildDerivedDataFromMatches();
+
+                              if (!pageContext.mounted) return;
+                              Navigator.pop(pageContext);
+                              ScaffoldMessenger.of(pageContext).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Meč ažuriran i statistike su usklađene'),
+                                ),
+                              );
+                            } catch (_) {
+                              if (!pageContext.mounted) return;
+                              ScaffoldMessenger.of(pageContext).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Greška pri ažuriranju meča.'),
+                                ),
+                              );
+                            } finally {
+                              if (context.mounted) {
+                                setDialogState(() {
+                                  isSaving = false;
+                                });
+                              }
+                            }
+                          },
+                    child: Text(isSaving ? 'Spremanje...' : 'Spremi'),
+                  ),
                 ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Odustani'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  final updatedMatch = MatchModel(
-                    id: match.id,
-                    player1Id: match.player1Id,
-                    player2Id: match.player2Id,
-                    player1Name: match.player1Name,
-                    player2Name: match.player2Name,
-                    set1: set1Controller.text,
-                    set2: set2Controller.text,
-                    superTieBreak: stbController.text,
-                    season: match.season,
-                    playedAt: selectedDate,
-                    winnerId: match.winnerId,
-                  );
-                  await firestoreService.updateMatch(updatedMatch);
-                  if (!pageContext.mounted) return;
-                  Navigator.pop(pageContext);
-                  ScaffoldMessenger.of(pageContext).showSnackBar(
-                    const SnackBar(content: Text('Meč ažuriran')),
-                  );
-                },
-                child: const Text('Spremi'),
-              ),
-            ],
+              );
+            },
           );
         },
-      );
+      ).whenComplete(() {
+        set1Controller.dispose();
+        set2Controller.dispose();
+        stbController.dispose();
+      });
     }
   final FirestoreService firestoreService = FirestoreService();
 

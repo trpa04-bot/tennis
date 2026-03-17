@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/player.dart';
 import '../services/firestore_service.dart';
@@ -15,175 +16,214 @@ class PlayersPage extends StatefulWidget {
 class _PlayersPageState extends State<PlayersPage> {
   String selectedLeagueTab = 'all';
 
-    void _editPlayerDialog(Player player) {
-      final pageContext = context;
-      final nameController = TextEditingController(text: player.name);
-      final ratingController = TextEditingController(text: player.rating.toString());
-      String selectedLeague = player.league;
-
-      showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('Uredi igrača'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Ime'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: ratingController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Rating'),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedLeague,
-                    decoration: const InputDecoration(labelText: 'Liga'),
-                    items: const [
-                      DropdownMenuItem(value: '1', child: Text('1. liga')),
-                      DropdownMenuItem(value: '2', child: Text('2. liga')),
-                      DropdownMenuItem(value: '3', child: Text('3. liga')),
-                      DropdownMenuItem(value: '4', child: Text('4. liga')),
-                    ],
-                    onChanged: (value) {
-                      selectedLeague = value ?? '1';
-                    },
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Odustani'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  final name = nameController.text.trim();
-                  final rating = int.tryParse(ratingController.text.trim()) ?? 0;
-                  if (name.isEmpty) return;
-                  final updatedPlayer = Player(
-                    id: player.id,
-                    name: name,
-                    rating: rating,
-                    league: selectedLeague,
-                    frozen: player.frozen,
-                    archived: player.archived,
-                    achievements: player.achievements,
-                  );
-
-                  try {
-                    final updated = await firestoreService.updatePlayer(updatedPlayer);
-                    if (!pageContext.mounted) return;
-
-                    if (!updated) {
-                      ScaffoldMessenger.of(pageContext).showSnackBar(
-                        const SnackBar(
-                          content: Text('Promjene nisu spremljene. Pokušaj ponovno.'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    Navigator.pop(pageContext);
-                    ScaffoldMessenger.of(pageContext).showSnackBar(
-                      SnackBar(content: Text('Igrač ažuriran. Novi rating: $rating')),
-                    );
-                  } catch (_) {
-                    if (!pageContext.mounted) return;
-
-                    ScaffoldMessenger.of(pageContext).showSnackBar(
-                      const SnackBar(
-                        content: Text('Greška pri spremanju igrača.'),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Spremi'),
-              ),
-            ],
-          );
-        },
-      );
-    }
   final FirestoreService firestoreService = FirestoreService();
 
+  int _defaultRatingForLeague(String league) {
+    switch (_normalizeLeague(league)) {
+      case '1':
+        return 1500;
+      case '2':
+        return 1000;
+      case '3':
+        return 500;
+      case '4':
+        return 0;
+      default:
+        return 0;
+    }
+  }
+
+  void _editPlayerDialog(Player player) {
+    _openPlayerDialog(player: player);
+  }
+
   void _openAddPlayerDialog() {
-    final nameController = TextEditingController();
-    final ratingController = TextEditingController();
-    String selectedLeague = '1';
+    _openPlayerDialog();
+  }
+
+  void _openPlayerDialog({Player? player}) {
+    final isEditing = player != null;
+    final pageContext = context;
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController(text: player?.name ?? '');
+    final ratingController = TextEditingController(
+      text: isEditing ? player.rating.toString() : '',
+    );
+    String selectedLeague = player?.league ?? '1';
+    bool isSaving = false;
 
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Add Player'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Name'),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> handleSubmit() async {
+              if (isSaving) return;
+              if (!(formKey.currentState?.validate() ?? false)) return;
+
+              final name = nameController.text.trim();
+              final parsedRating = int.tryParse(ratingController.text.trim()) ?? 0;
+              final appliedRating = isEditing
+                  ? parsedRating
+                  : (parsedRating > 0
+                      ? parsedRating
+                      : _defaultRatingForLeague(selectedLeague));
+
+              setDialogState(() {
+                isSaving = true;
+              });
+
+              try {
+                if (isEditing) {
+                  final updated = await firestoreService.updatePlayer(
+                    Player(
+                      id: player.id,
+                      name: name,
+                      rating: appliedRating,
+                      league: selectedLeague,
+                      frozen: player.frozen,
+                      archived: player.archived,
+                      achievements: player.achievements,
+                    ),
+                  );
+
+                  if (!pageContext.mounted) return;
+
+                  if (!updated) {
+                    ScaffoldMessenger.of(pageContext).showSnackBar(
+                      const SnackBar(
+                        content: Text('Promjene nisu spremljene. Pokušaj ponovno.'),
+                      ),
+                    );
+                    return;
+                  }
+                } else {
+                  await firestoreService.addPlayer(
+                    Player(
+                      name: name,
+                      rating: appliedRating,
+                      league: selectedLeague,
+                    ),
+                  );
+                }
+
+                if (!pageContext.mounted) return;
+
+                Navigator.pop(dialogContext);
+                ScaffoldMessenger.of(pageContext).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      isEditing
+                          ? 'Igrač ažuriran. Novi rating: $appliedRating'
+                          : 'Igrač dodan. Početni rating: $appliedRating',
+                    ),
+                  ),
+                );
+              } catch (_) {
+                if (!pageContext.mounted) return;
+
+                ScaffoldMessenger.of(pageContext).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      isEditing
+                          ? 'Greška pri spremanju igrača.'
+                          : 'Greška pri dodavanju igrača.',
+                    ),
+                  ),
+                );
+              } finally {
+                if (dialogContext.mounted) {
+                  setDialogState(() {
+                    isSaving = false;
+                  });
+                }
+              }
+            }
+
+            return AlertDialog(
+              title: Text(isEditing ? 'Uredi igrača' : 'Dodaj igrača'),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: nameController,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Ime',
+                          hintText: 'Upiši ime igrača',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Ime je obavezno.';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: ratingController,
+                        keyboardType: TextInputType.number,
+                        textInputAction: TextInputAction.done,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: InputDecoration(
+                          labelText: 'Rating',
+                          hintText: isEditing ? 'Unesi rating' : 'Ostavi prazno za zadani rating lige',
+                        ),
+                        validator: (value) {
+                          final trimmed = value?.trim() ?? '';
+                          if (isEditing && trimmed.isEmpty) {
+                            return 'Rating je obavezan.';
+                          }
+                          if (trimmed.isNotEmpty && int.tryParse(trimmed) == null) {
+                            return 'Rating mora biti broj.';
+                          }
+                          return null;
+                        },
+                        onFieldSubmitted: (_) => handleSubmit(),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedLeague,
+                        decoration: const InputDecoration(labelText: 'Liga'),
+                        items: const [
+                          DropdownMenuItem(value: '1', child: Text('1. liga')),
+                          DropdownMenuItem(value: '2', child: Text('2. liga')),
+                          DropdownMenuItem(value: '3', child: Text('3. liga')),
+                          DropdownMenuItem(value: '4', child: Text('4. liga')),
+                        ],
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                setDialogState(() {
+                                  selectedLeague = value ?? '1';
+                                });
+                              },
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: ratingController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Rating'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Odustani'),
                 ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedLeague,
-                  decoration: const InputDecoration(labelText: 'League'),
-                  items: const [
-                    DropdownMenuItem(value: '1', child: Text('1. liga')),
-                    DropdownMenuItem(value: '2', child: Text('2. liga')),
-                    DropdownMenuItem(value: '3', child: Text('3. liga')),
-                    DropdownMenuItem(value: '4', child: Text('4. liga')),
-                  ],
-                  onChanged: (value) {
-                    selectedLeague = value ?? '1';
-                  },
+                ElevatedButton(
+                  onPressed: isSaving ? null : handleSubmit,
+                  child: Text(isSaving ? 'Spremanje...' : 'Spremi'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                final rating = int.tryParse(ratingController.text.trim()) ?? 0;
-
-                if (name.isEmpty) return;
-
-                final player = Player(
-                  name: name,
-                  rating: rating,
-                  league: selectedLeague,
-                );
-
-                await firestoreService.addPlayer(player);
-
-                if (context.mounted) {
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
+            );
+          },
         );
       },
-    );
+    ).whenComplete(() {
+      nameController.dispose();
+      ratingController.dispose();
+    });
   }
 
   void _confirmDelete(Player player) {

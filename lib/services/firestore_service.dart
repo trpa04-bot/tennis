@@ -220,6 +220,12 @@ class FirestoreService {
     await matches.doc(match.id).update(match.toMap());
   }
 
+  Future<void> rebuildDerivedDataFromMatches() async {
+    await _recalculateRatingsFromAllMatches();
+    await recalculateAllAchievements();
+    await rebuildActivityFeed();
+  }
+
   Future<void> deleteMatch(String id) async {
     await matches.doc(id).delete();
   }
@@ -559,6 +565,50 @@ class FirestoreService {
     final fromBase = _baseRatingForLeague(fromLeague);
     final toBase = _baseRatingForLeague(toLeague);
     return currentRating + (toBase - fromBase);
+  }
+
+  Future<void> _recalculateRatingsFromAllMatches() async {
+    final playerSnapshot = await players.get();
+
+    WriteBatch batch = _db.batch();
+    int operationCount = 0;
+
+    Future<void> flushBatch() async {
+      if (operationCount == 0) return;
+      await batch.commit();
+      batch = _db.batch();
+      operationCount = 0;
+    }
+
+    for (final playerDoc in playerSnapshot.docs) {
+      final data = Map<String, dynamic>.from(playerDoc.data() as Map);
+      final league = data['league']?.toString() ?? '';
+
+      batch.update(playerDoc.reference, {
+        'rating': _baseRatingForLeague(league),
+      });
+      operationCount++;
+
+      if (operationCount >= 450) {
+        await flushBatch();
+      }
+    }
+
+    await flushBatch();
+
+    final matchSnapshot = await matches.get();
+    final allMatches = matchSnapshot.docs
+        .map((doc) {
+          final data = Map<String, dynamic>.from(doc.data() as Map);
+          return MatchModel.fromMap(data, id: doc.id);
+        })
+        .where((match) => _resolveWinnerId(match, _parseSetWins(match)).isNotEmpty)
+        .toList()
+      ..sort((a, b) => a.playedAt.compareTo(b.playedAt));
+
+    for (final match in allMatches) {
+      await _applyEloForMatch(match);
+    }
   }
 
   Future<void> _applyEloForMatch(MatchModel match) async {
