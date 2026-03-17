@@ -11,8 +11,9 @@ class AddMatchPage extends StatefulWidget {
 }
 
 class _AddMatchPageState extends State<AddMatchPage> {
-    DateTime? selectedDate;
+  DateTime? selectedDate;
   final FirestoreService firestoreService = FirestoreService();
+  bool isSaving = false;
 
   String? player1Id;
   String? player2Id;
@@ -45,34 +46,6 @@ class _AddMatchPageState extends State<AddMatchPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-                      // Polje za odabir datuma
-                      Row(
-                        children: [
-                          const Text('Datum meča:', style: TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(width: 10),
-                          Text(selectedDate == null
-                              ? 'Odaberi datum'
-                              : '${selectedDate!.day}.${selectedDate!.month}.${selectedDate!.year}'),
-                          IconButton(
-                            icon: const Icon(Icons.calendar_today),
-                            onPressed: () async {
-                              final now = DateTime.now();
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: selectedDate ?? now,
-                                firstDate: DateTime(now.year - 5),
-                                lastDate: DateTime(now.year + 1),
-                              );
-                              if (picked != null) {
-                                setState(() {
-                                  selectedDate = picked;
-                                });
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
         const SizedBox(height: 20),
         Text(
           title,
@@ -123,6 +96,10 @@ class _AddMatchPageState extends State<AddMatchPage> {
 
   String _buildSet(int a, int b) => '$a:$b';
 
+  String _formatDate(DateTime date) {
+    return '${date.day}.${date.month}.${date.year}';
+  }
+
   String _determineWinnerId() {
     int p1Sets = 0;
     int p2Sets = 0;
@@ -145,6 +122,10 @@ class _AddMatchPageState extends State<AddMatchPage> {
       } else if (stb2 > stb1) {
         p2Sets++;
       }
+    }
+
+    if (p1Sets == p2Sets) {
+      return '';
     }
 
     return p1Sets > p2Sets ? (player1Id ?? '') : (player2Id ?? '');
@@ -173,7 +154,7 @@ class _AddMatchPageState extends State<AddMatchPage> {
           }
 
             final players = (snapshot.data ?? [])
-              .where((p) => !p.frozen && !p.archived)
+              .where((player) => !player.archived && !player.frozen)
               .toList();
 
           final player2Options = players
@@ -189,6 +170,7 @@ class _AddMatchPageState extends State<AddMatchPage> {
                   labelText: 'Player 1',
                   border: OutlineInputBorder(),
                 ),
+                hint: const Text('Odaberi igrača'),
                 items: players.map((p) {
                   return DropdownMenuItem<String>(
                     value: p.id,
@@ -214,6 +196,7 @@ class _AddMatchPageState extends State<AddMatchPage> {
                   labelText: 'Player 2',
                   border: OutlineInputBorder(),
                 ),
+                hint: const Text('Odaberi igrača'),
                 items: player2Options.map((p) {
                   return DropdownMenuItem<String>(
                     value: p.id,
@@ -226,6 +209,40 @@ class _AddMatchPageState extends State<AddMatchPage> {
                     player2 = players.firstWhere((p) => p.id == value);
                   });
                 },
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Text(
+                    'Datum meča:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      selectedDate == null
+                          ? 'Odaberi datum'
+                          : _formatDate(selectedDate!),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    onPressed: () async {
+                      final now = DateTime.now();
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate ?? now,
+                        firstDate: DateTime(now.year - 5),
+                        lastDate: DateTime(now.year + 1),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          selectedDate = picked;
+                        });
+                      }
+                    },
+                  ),
+                ],
               ),
               scoreSelector(
                 title: 'Set 1',
@@ -259,7 +276,9 @@ class _AddMatchPageState extends State<AddMatchPage> {
               Text('Odabrano: ${_buildSet(stb1, stb2)}'),
               const SizedBox(height: 30),
               ElevatedButton(
-                onPressed: () async {
+                onPressed: isSaving
+                    ? null
+                    : () async {
                   if (player1 == null || player2 == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -273,6 +292,16 @@ class _AddMatchPageState extends State<AddMatchPage> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Igrač ne može igrati sam protiv sebe'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final winnerId = _determineWinnerId();
+                  if (winnerId.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Unesi valjan rezultat meča prije spremanja'),
                       ),
                     );
                     return;
@@ -293,6 +322,11 @@ class _AddMatchPageState extends State<AddMatchPage> {
                   if (setsWonP1 == 2 || setsWonP2 == 2) {
                     superTieBreakValue = "";
                   }
+
+                  setState(() {
+                    isSaving = true;
+                  });
+
                   final match = MatchModel(
                     player1Id: player1!.id ?? '',
                     player2Id: player2!.id ?? '',
@@ -303,22 +337,39 @@ class _AddMatchPageState extends State<AddMatchPage> {
                     superTieBreak: superTieBreakValue,
                     season: season,
                     playedAt: selectedDate ?? DateTime.now(),
-                    winnerId: _determineWinnerId(),
+                    winnerId: winnerId,
                   );
+                  final messenger = ScaffoldMessenger.of(context);
+                  final navigator = Navigator.of(context);
 
-                  await firestoreService.addMatch(match);
+                  try {
+                    await firestoreService.addMatch(match);
 
-                  if (!context.mounted) return;
+                    if (!mounted) return;
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Meč je spremljen'),
-                    ),
-                  );
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Meč je spremljen'),
+                      ),
+                    );
 
-                  Navigator.pop(context);
+                    navigator.pop();
+                  } catch (_) {
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Greška pri spremanju meča'),
+                      ),
+                    );
+                  } finally {
+                    if (mounted) {
+                      setState(() {
+                        isSaving = false;
+                      });
+                    }
+                  }
                 },
-                child: const Text('SAVE MATCH'),
+                child: Text(isSaving ? 'SPREMANJE...' : 'SAVE MATCH'),
               ),
             ],
           );
