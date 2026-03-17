@@ -118,6 +118,22 @@ class PlayerDetailsPage extends StatelessWidget {
                     .where((k) => k.isNotEmpty)
                     .toSet();
 
+                final playedStatusByOpponent = <String, _PlayedOpponentStatus>{};
+                for (final match in seasonMatches) {
+                  final opponentKey = _opponentKeyForPlayer(match);
+                  if (opponentKey.isEmpty) continue;
+
+                  final isP1 = _isPlayer1(match);
+                  final opponentName = _opponentName(match, isP1, playersById);
+                  final didWin = _didPlayerWin(match);
+
+                  // Keep latest match status per opponent (seasonMatches is newest-first).
+                  playedStatusByOpponent.putIfAbsent(
+                    opponentKey,
+                    () => _PlayedOpponentStatus(name: opponentName, didWin: didWin),
+                  );
+                }
+
                 final notPlayedOpponents = leaguePlayers
                     .where((p) => (p.id ?? '').isNotEmpty)
                     .where((p) => p.id != playerId)
@@ -137,7 +153,10 @@ class PlayerDetailsPage extends StatelessWidget {
                         _playerKeyFromIdName(p.id, p.name),
                       ),
                     )
-                    .map((p) => p.name)
+                    .map(
+                      (p) => playedStatusByOpponent[_playerKeyFromIdName(p.id, p.name)] ??
+                          _PlayedOpponentStatus(name: p.name, didWin: false),
+                    )
                     .toList();
                 final isCompact = MediaQuery.of(context).size.width < 420;
                 final pagePadding = EdgeInsets.fromLTRB(
@@ -825,7 +844,7 @@ class PlayerDetailsPage extends StatelessWidget {
 
   Widget _remainingOpponentsCompactCard({
     required String season,
-    required List<String> playedOpponents,
+    required List<_PlayedOpponentStatus> playedOpponents,
     required List<String> notPlayedOpponents,
   }) {
     return Card(
@@ -879,9 +898,25 @@ class PlayerDetailsPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: playedOpponents
                     .map(
-                      (name) => Text(
-                        '• $name',
-                        style: const TextStyle(color: Colors.green),
+                      (opponent) => Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '• ${opponent.name}',
+                              style: const TextStyle(color: Colors.green),
+                            ),
+                          ),
+                          Tooltip(
+                            message: opponent.didWin ? 'Ti: pobjeda' : 'Ti: poraz',
+                            child: Icon(
+                              opponent.didWin
+                                  ? Icons.check_circle
+                                  : Icons.cancel,
+                              size: 14,
+                              color: opponent.didWin ? Colors.green : Colors.red,
+                            ),
+                          ),
+                        ],
                       ),
                     )
                     .toList(),
@@ -1008,6 +1043,16 @@ class _StatItem {
   final String value;
 
   _StatItem(this.title, this.value);
+}
+
+class _PlayedOpponentStatus {
+  final String name;
+  final bool didWin;
+
+  const _PlayedOpponentStatus({
+    required this.name,
+    required this.didWin,
+  });
 }
 
 class _ParsedMatch {
