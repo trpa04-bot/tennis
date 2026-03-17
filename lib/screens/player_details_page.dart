@@ -899,20 +899,20 @@ class PlayerDetailsPage extends StatelessWidget {
                 children: playedOpponents
                     .map(
                       (opponent) => Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Text(
-                              '• ${opponent.name}',
-                              style: const TextStyle(color: Colors.green),
-                            ),
+                          Text(
+                            '• ${opponent.name}',
+                            style: const TextStyle(color: Colors.green),
                           ),
+                          const SizedBox(width: 6),
                           Tooltip(
                             message: opponent.didWin ? 'Ti: pobjeda' : 'Ti: poraz',
                             child: Icon(
                               opponent.didWin
                                   ? Icons.check_circle
                                   : Icons.cancel,
-                              size: 14,
+                              size: 16,
                               color: opponent.didWin ? Colors.green : Colors.red,
                             ),
                           ),
