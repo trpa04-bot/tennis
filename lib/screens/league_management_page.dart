@@ -57,9 +57,9 @@ class _LeagueManagementPageState extends State<LeagueManagementPage> {
       achievements: player.achievements,
     );
 
-    await firestoreService.updatePlayer(updatedPlayer);
+    final updated = await firestoreService.updatePlayer(updatedPlayer);
 
-    if (!mounted) return;
+    if (!mounted || !updated) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

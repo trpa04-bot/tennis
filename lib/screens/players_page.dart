@@ -76,12 +76,33 @@ class _PlayersPageState extends State<PlayersPage> {
                     archived: player.archived,
                     achievements: player.achievements,
                   );
-                  await firestoreService.updatePlayer(updatedPlayer);
-                  if (!pageContext.mounted) return;
-                  Navigator.pop(pageContext);
-                  ScaffoldMessenger.of(pageContext).showSnackBar(
-                    const SnackBar(content: Text('Igrač ažuriran')),
-                  );
+
+                  try {
+                    final updated = await firestoreService.updatePlayer(updatedPlayer);
+                    if (!pageContext.mounted) return;
+
+                    if (!updated) {
+                      ScaffoldMessenger.of(pageContext).showSnackBar(
+                        const SnackBar(
+                          content: Text('Promjene nisu spremljene. Pokušaj ponovno.'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    Navigator.pop(pageContext);
+                    ScaffoldMessenger.of(pageContext).showSnackBar(
+                      SnackBar(content: Text('Igrač ažuriran. Novi rating: $rating')),
+                    );
+                  } catch (_) {
+                    if (!pageContext.mounted) return;
+
+                    ScaffoldMessenger.of(pageContext).showSnackBar(
+                      const SnackBar(
+                        content: Text('Greška pri spremanju igrača.'),
+                      ),
+                    );
+                  }
                 },
                 child: const Text('Spremi'),
               ),

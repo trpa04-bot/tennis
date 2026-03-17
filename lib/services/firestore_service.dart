@@ -55,12 +55,12 @@ class FirestoreService {
     await players.doc(id).delete();
   }
 
-  Future<void> updatePlayer(Player player) async {
+  Future<bool> updatePlayer(Player player) async {
     final id = player.id;
-    if (id == null || id.isEmpty) return;
+    if (id == null || id.isEmpty) return false;
 
     final existingDoc = await players.doc(id).get();
-    if (!existingDoc.exists) return;
+    if (!existingDoc.exists) return false;
 
     final existing = Player.fromMap(
       Map<String, dynamic>.from(existingDoc.data() as Map),
@@ -86,6 +86,8 @@ class FirestoreService {
       'archived': player.archived,
       'achievements': player.achievements,
     });
+
+    return true;
   }
 
   Future<void> updatePlayerLeague({
