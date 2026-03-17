@@ -37,13 +37,17 @@ class FirestoreService {
 
   Future<void> addPlayer(Player player) async {
     final normalizedLeague = _normalizeLeague(player.league);
+    final initialRating = player.rating > 0
+        ? player.rating
+        : _baseRatingForLeague(normalizedLeague);
 
     await players.add({
       'name': player.name,
-      'rating': _baseRatingForLeague(normalizedLeague),
+      'rating': initialRating,
       'league': normalizedLeague,
-      'frozen': false,
-      'archived': false,
+      'frozen': player.frozen,
+      'archived': player.archived,
+      'achievements': player.achievements,
     });
   }
 
@@ -67,9 +71,9 @@ class FirestoreService {
     final newLeague = _normalizeLeague(player.league);
 
     final updatedRating = oldLeague == newLeague
-        ? existing.rating
+      ? player.rating
         : _shiftRatingForLeagueChange(
-            currentRating: existing.rating,
+        currentRating: player.rating,
             fromLeague: oldLeague,
             toLeague: newLeague,
           );
@@ -80,6 +84,7 @@ class FirestoreService {
       'league': newLeague,
       'frozen': player.frozen,
       'archived': player.archived,
+      'achievements': player.achievements,
     });
   }
 

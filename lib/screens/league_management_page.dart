@@ -41,12 +41,7 @@ class _LeagueManagementPageState extends State<LeagueManagementPage> {
 
   List<Player> _playersForLeague(List<Player> players, String league) {
     return players
-        .where(
-          (p) =>
-              !p.frozen &&
-              !p.archived &&
-              _normalizeLeague(p.league) == league,
-        )
+        .where((p) => _normalizeLeague(p.league) == league)
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
   }
@@ -59,6 +54,7 @@ class _LeagueManagementPageState extends State<LeagueManagementPage> {
       league: newLeague,
       frozen: player.frozen,
       archived: player.archived,
+      achievements: player.achievements,
     );
 
     await firestoreService.updatePlayer(updatedPlayer);

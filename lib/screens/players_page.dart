@@ -74,6 +74,7 @@ class _PlayersPageState extends State<PlayersPage> {
                     league: selectedLeague,
                     frozen: player.frozen,
                     archived: player.archived,
+                    achievements: player.achievements,
                   );
                   await firestoreService.updatePlayer(updatedPlayer);
                   if (!pageContext.mounted) return;

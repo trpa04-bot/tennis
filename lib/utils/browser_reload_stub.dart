@@ -1,3 +1,4 @@
 Future<bool> tryReloadApp() async {
-  return false;
+	return false;
 }
+
