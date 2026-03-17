@@ -30,48 +30,63 @@ class _ViewerPlayersPageState extends State<ViewerPlayersPage> {
 
   String _normalizeLeague(String league) {
     final value = league.trim().toLowerCase();
-    if (value == '1' || value == '1.(ROLAND GARROS)') return '1';
-    if (value == '2' || value == '2.(AUSTRALIAN OPEN)') return '2';
-    if (value == '3' || value == '3.(WIMBLEDON)') return '3';
-    if (value == '4' || value == '4.(US OPEN)') return '4';
+    if (value == '1' || value == '1.(roland garros)' || value == '1. liga') return '1';
+    if (value == '2' || value == '2.(australian open)' || value == '2. liga') return '2';
+    if (value == '3' || value == '3.(wimbledon)' || value == '3. liga') return '3';
+    if (value == '4' || value == '4.(us open)' || value == '4. liga') return '4';
     return league;
   }
 
-  Widget _leagueTabButton({
+  Widget _leagueTabChip({
     required String value,
     required String label,
     required IconData icon,
+    required int count,
   }) {
     final isSelected = selectedLeagueTab == value;
+    final scheme = Theme.of(context).colorScheme;
 
-    return GestureDetector(
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
       onTap: () {
         setState(() {
           selectedLeagueTab = value;
         });
       },
-      child: Container(
-        width: 88,
-        height: 88,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected ? scheme.primaryContainer : scheme.surface,
+          borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.outlineVariant,
+            color: isSelected ? scheme.primary : scheme.outlineVariant,
             width: isSelected ? 2 : 1,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20),
-            const SizedBox(height: 6),
+            Icon(icon, size: 18),
+            const SizedBox(width: 8),
             Text(
               label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? scheme.primary.withValues(alpha: 0.16)
+                    : scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '$count',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+              ),
             ),
           ],
         ),
@@ -117,6 +132,20 @@ class _ViewerPlayersPageState extends State<ViewerPlayersPage> {
                 )
                 .toList();
 
+          final allCount = players.length;
+          final league1Count = players
+              .where((p) => !p.frozen && _normalizeLeague(p.league) == '1')
+              .length;
+          final league2Count = players
+              .where((p) => !p.frozen && _normalizeLeague(p.league) == '2')
+              .length;
+          final league3Count = players
+              .where((p) => !p.frozen && _normalizeLeague(p.league) == '3')
+              .length;
+          final league4Count = players
+              .where((p) => !p.frozen && _normalizeLeague(p.league) == '4')
+              .length;
+
           filteredPlayers.sort((a, b) => a.name.compareTo(b.name));
 
           if (players.isEmpty) {
@@ -128,17 +157,48 @@ class _ViewerPlayersPageState extends State<ViewerPlayersPage> {
           return Column(
             children: [
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                alignment: WrapAlignment.center,
-                children: [
-                  _leagueTabButton(value: 'all', label: 'All', icon: Icons.groups),
-                  _leagueTabButton(value: '1', label: '1.(ROLAND GARROS)', icon: Icons.looks_one),
-                  _leagueTabButton(value: '2', label: '2.(AUSTRALIAN OPEN)', icon: Icons.looks_two),
-                  _leagueTabButton(value: '3', label: '3.(WIMBLEDON)', icon: Icons.looks_3),
-                  _leagueTabButton(value: '4', label: '4.(US OPEN)', icon: Icons.looks_4),
-                ],
+              SizedBox(
+                height: 48,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: [
+                    _leagueTabChip(
+                      value: 'all',
+                      label: 'Svi',
+                      icon: Icons.groups,
+                      count: allCount,
+                    ),
+                    const SizedBox(width: 8),
+                    _leagueTabChip(
+                      value: '1',
+                      label: 'Roland Garros',
+                      icon: Icons.looks_one,
+                      count: league1Count,
+                    ),
+                    const SizedBox(width: 8),
+                    _leagueTabChip(
+                      value: '2',
+                      label: 'Australian Open',
+                      icon: Icons.looks_two,
+                      count: league2Count,
+                    ),
+                    const SizedBox(width: 8),
+                    _leagueTabChip(
+                      value: '3',
+                      label: 'Wimbledon',
+                      icon: Icons.looks_3,
+                      count: league3Count,
+                    ),
+                    const SizedBox(width: 8),
+                    _leagueTabChip(
+                      value: '4',
+                      label: 'US Open',
+                      icon: Icons.looks_4,
+                      count: league4Count,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 8),
               Expanded(
