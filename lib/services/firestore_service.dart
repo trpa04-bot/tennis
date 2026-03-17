@@ -52,7 +52,28 @@ class FirestoreService {
   }
 
   Future<void> deletePlayer(String id) async {
-    await players.doc(id).delete();
+    // Delete all matches involving this player before removing the player doc
+    final matchQuery1 = await _db
+        .collection('matches')
+        .where('player1Id', isEqualTo: id)
+        .get();
+    final matchQuery2 = await _db
+        .collection('matches')
+        .where('player2Id', isEqualTo: id)
+        .get();
+
+    final batch = _db.batch();
+    for (final doc in matchQuery1.docs) {
+      batch.delete(doc.reference);
+    }
+    for (final doc in matchQuery2.docs) {
+      batch.delete(doc.reference);
+    }
+    batch.delete(players.doc(id));
+    await batch.commit();
+
+    // Rebuild derived data so ratings and achievements reflect removal
+    await rebuildDerivedDataFromMatches();
   }
 
   Future<bool> updatePlayer(Player player) async {

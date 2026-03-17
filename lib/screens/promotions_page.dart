@@ -13,11 +13,18 @@ class _PromotionsPageState extends State<PromotionsPage> {
 
   String selectedSeason = 'Winter 2026';
   bool isApplying = false;
+  late Future<_PromotionPreview> _previewFuture;
 
   final List<String> seasons = const [
     'Winter 2026',
     'Summer 2026',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _previewFuture = _loadPreview();
+  }
 
   Future<_PromotionPreview> _loadPreview() async {
     final league1 =
@@ -158,7 +165,7 @@ class _PromotionsPageState extends State<PromotionsPage> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<_PromotionPreview>(
-      future: _loadPreview(),
+      future: _previewFuture,
       builder: (context, snapshot) {
         return Scaffold(
           appBar: AppBar(
@@ -187,6 +194,7 @@ class _PromotionsPageState extends State<PromotionsPage> {
                       if (value == null) return;
                       setState(() {
                         selectedSeason = value;
+                        _previewFuture = _loadPreview();
                       });
                     },
                   ),

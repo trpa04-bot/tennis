@@ -60,7 +60,10 @@ class _SchedulePageState extends State<SchedulePage> {
 
   List<Player> _playersForLeague(List<Player> players) {
     return players
-        .where((p) => _normalizeLeague(p.league) == selectedLeague)
+        .where((p) =>
+            _normalizeLeague(p.league) == selectedLeague &&
+            !p.archived &&
+            !p.frozen)
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
   }
