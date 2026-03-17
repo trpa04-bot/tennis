@@ -50,8 +50,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate Firebase secret
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
             echo "Missing FIREBASE_SERVICE_ACCOUNT secret in repository settings."
             exit 1
           fi
@@ -82,8 +84,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate Firebase secret
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
-          if [ -z "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" ]; then
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
             echo "Missing FIREBASE_SERVICE_ACCOUNT secret in repository settings."
             exit 1
           fi

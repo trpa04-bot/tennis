@@ -99,15 +99,16 @@ class PlayerDetailsPage extends StatelessWidget {
                   currentPlayer?.league ?? '',
                 );
 
-                final leaguePlayers = playersById.values
-                    .where(
-                      (p) =>
-                          _normalizeLeague(p.league) == normalizedLeague &&
-                          !p.archived &&
-                          !p.frozen,
-                    )
-                    .toList()
-                  ..sort((a, b) => a.name.compareTo(b.name));
+                final leaguePlayers =
+                    playersById.values
+                        .where(
+                          (p) =>
+                              _normalizeLeague(p.league) == normalizedLeague &&
+                              !p.archived &&
+                              !p.frozen,
+                        )
+                        .toList()
+                      ..sort((a, b) => a.name.compareTo(b.name));
 
                 final seasonMatches = matches
                     .where((m) => m.season == currentSeason)
@@ -118,7 +119,8 @@ class PlayerDetailsPage extends StatelessWidget {
                     .where((k) => k.isNotEmpty)
                     .toSet();
 
-                final playedStatusByOpponent = <String, _PlayedOpponentStatus>{};
+                final playedStatusByOpponent =
+                    <String, _PlayedOpponentStatus>{};
                 for (final match in seasonMatches) {
                   final opponentKey = _opponentKeyForPlayer(match);
                   if (opponentKey.isEmpty) continue;
@@ -130,7 +132,10 @@ class PlayerDetailsPage extends StatelessWidget {
                   // Keep latest match status per opponent (seasonMatches is newest-first).
                   playedStatusByOpponent.putIfAbsent(
                     opponentKey,
-                    () => _PlayedOpponentStatus(name: opponentName, didWin: didWin),
+                    () => _PlayedOpponentStatus(
+                      name: opponentName,
+                      didWin: didWin,
+                    ),
                   );
                 }
 
@@ -154,7 +159,11 @@ class PlayerDetailsPage extends StatelessWidget {
                       ),
                     )
                     .map(
-                      (p) => playedStatusByOpponent[_playerKeyFromIdName(p.id, p.name)] ??
+                      (p) =>
+                          playedStatusByOpponent[_playerKeyFromIdName(
+                            p.id,
+                            p.name,
+                          )] ??
                           _PlayedOpponentStatus(name: p.name, didWin: false),
                     )
                     .toList();
@@ -199,6 +208,7 @@ class PlayerDetailsPage extends StatelessWidget {
                           _achievementsCard(context, playerAchievements),
                           sectionGap,
                           _remainingOpponentsCompactCard(
+                            context: context,
                             season: currentSeason,
                             playedOpponents: playedOpponents,
                             notPlayedOpponents: notPlayedOpponents,
@@ -843,6 +853,7 @@ class PlayerDetailsPage extends StatelessWidget {
   }
 
   Widget _remainingOpponentsCompactCard({
+    required BuildContext context,
     required String season,
     required List<_PlayedOpponentStatus> playedOpponents,
     required List<String> notPlayedOpponents,
@@ -862,14 +873,14 @@ class PlayerDetailsPage extends StatelessWidget {
             const SizedBox(height: 12),
             const Text(
               'Nije odigrano',
-              style: TextStyle(
-                color: Colors.red,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 6),
             if (notPlayedOpponents.isEmpty)
-              const Text('Nema, sve je odigrano.', style: TextStyle(color: Colors.red))
+              const Text(
+                'Nema, sve je odigrano.',
+                style: TextStyle(color: Colors.red),
+              )
             else
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -892,7 +903,10 @@ class PlayerDetailsPage extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             if (playedOpponents.isEmpty)
-              const Text('Još nema odigranih mečeva.', style: TextStyle(color: Colors.green))
+              const Text(
+                'Još nema odigranih mečeva.',
+                style: TextStyle(color: Colors.green),
+              )
             else
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -911,7 +925,8 @@ class PlayerDetailsPage extends StatelessWidget {
                               ),
                             ),
                             TextSpan(
-                              text: '  ${opponent.didWin ? 'pobjeda' : 'poraz'}',
+                              text:
+                                  '  ${opponent.didWin ? 'pobjeda' : 'poraz'}',
                             ),
                           ],
                         ),
@@ -1047,10 +1062,7 @@ class _PlayedOpponentStatus {
   final String name;
   final bool didWin;
 
-  const _PlayedOpponentStatus({
-    required this.name,
-    required this.didWin,
-  });
+  const _PlayedOpponentStatus({required this.name, required this.didWin});
 }
 
 class _ParsedMatch {
