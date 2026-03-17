@@ -898,25 +898,23 @@ class PlayerDetailsPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: playedOpponents
                     .map(
-                      (opponent) => Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '• ${opponent.name}',
-                            style: const TextStyle(color: Colors.green),
-                          ),
-                          const SizedBox(width: 6),
-                          Tooltip(
-                            message: opponent.didWin ? 'Ti: pobjeda' : 'Ti: poraz',
-                            child: Icon(
-                              opponent.didWin
-                                  ? Icons.check_circle
-                                  : Icons.cancel,
-                              size: 16,
-                              color: opponent.didWin ? Colors.green : Colors.red,
+                      (opponent) => RichText(
+                        text: TextSpan(
+                          style: DefaultTextStyle.of(context).style,
+                          children: [
+                            const TextSpan(text: 'vs '),
+                            TextSpan(
+                              text: opponent.name,
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                            TextSpan(
+                              text: '  ${opponent.didWin ? 'pobjeda' : 'poraz'}',
+                            ),
+                          ],
+                        ),
                       ),
                     )
                     .toList(),
