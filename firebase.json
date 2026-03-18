@@ -1,27 +1,4 @@
 {
-  "flutter": {
-    "platforms": {
-      "android": {
-        "default": {
-          "projectId": "tennis-club-app-fb311",
-          "appId": "1:397620043905:android:4236a25f8f0ea64dfdad80",
-          "fileOutput": "android/app/google-services.json"
-        }
-      },
-      "dart": {
-        "lib/firebase_options.dart": {
-          "projectId": "tennis-club-app-fb311",
-          "configurations": {
-            "android": "1:397620043905:android:4236a25f8f0ea64dfdad80",
-            "ios": "1:397620043905:ios:75b00e0a8a5f03e8fdad80",
-            "macos": "1:397620043905:ios:75b00e0a8a5f03e8fdad80",
-            "web": "1:397620043905:web:a461f15f9e932eebfdad80",
-            "windows": "1:397620043905:web:0d9350c642f59ee2fdad80"
-          }
-        }
-      }
-    }
-  },
   "hosting": {
     "public": "build/web",
     "ignore": [

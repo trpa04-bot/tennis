@@ -31,9 +31,14 @@ class _AddMatchPageState extends State<AddMatchPage> {
   int stb2 = 0;
 
   String season = 'Winter 2026';
+  String? simpleResult;
+
+  final List<String> seasons = const ['Winter 2026', 'Summer 2026'];
 
   final List<int> setNumbers = List.generate(8, (i) => i); // 0-7
   final List<int> stbNumbers = List.generate(31, (i) => i); // 0-30
+
+  bool get isSimpleSeason => season == 'Winter 2026';
 
   Widget scoreSelector({
     required String title,
@@ -49,10 +54,7 @@ class _AddMatchPageState extends State<AddMatchPage> {
         const SizedBox(height: 20),
         Text(
           title,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 10),
         const Text('Igrač 1'),
@@ -96,6 +98,58 @@ class _AddMatchPageState extends State<AddMatchPage> {
 
   String _buildSet(int a, int b) => '$a:$b';
 
+  void _applySimpleResultPreset() {
+    switch (simpleResult) {
+      case 'p1-2-0':
+        set1p1 = 1;
+        set1p2 = 0;
+        set2p1 = 1;
+        set2p2 = 0;
+        stb1 = 0;
+        stb2 = 0;
+        break;
+      case 'p1-2-1':
+        set1p1 = 1;
+        set1p2 = 0;
+        set2p1 = 0;
+        set2p2 = 1;
+        stb1 = 1;
+        stb2 = 0;
+        break;
+      case 'p2-2-1':
+        set1p1 = 0;
+        set1p2 = 1;
+        set2p1 = 1;
+        set2p2 = 0;
+        stb1 = 0;
+        stb2 = 1;
+        break;
+      case 'p2-2-0':
+        set1p1 = 0;
+        set1p2 = 1;
+        set2p1 = 0;
+        set2p2 = 1;
+        stb1 = 0;
+        stb2 = 0;
+        break;
+      default:
+        break;
+    }
+  }
+
+  String _simpleResultLabel() {
+    switch (simpleResult) {
+      case 'p1-2-0':
+      case 'p2-2-0':
+        return '2:0';
+      case 'p1-2-1':
+      case 'p2-2-1':
+        return '2:1';
+      default:
+        return '';
+    }
+  }
+
   String _formatDate(DateTime date) {
     return '${date.day}.${date.month}.${date.year}';
   }
@@ -134,26 +188,19 @@ class _AddMatchPageState extends State<AddMatchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Match'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Add Match'), centerTitle: true),
       body: StreamBuilder<List<Player>>(
         stream: firestoreService.getPlayers(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Text('Greška: ${snapshot.error}'),
-            );
+            return Center(child: Text('Greška: ${snapshot.error}'));
           }
 
-            final players = (snapshot.data ?? [])
+          final players = (snapshot.data ?? [])
               .where((player) => !player.archived && !player.frozen)
               .toList();
 
@@ -164,6 +211,33 @@ class _AddMatchPageState extends State<AddMatchPage> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              DropdownButtonFormField<String>(
+                initialValue: season,
+                decoration: const InputDecoration(
+                  labelText: 'Season',
+                  border: OutlineInputBorder(),
+                ),
+                items: seasons.map((value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    season = value;
+                    simpleResult = null;
+                    set1p1 = 0;
+                    set1p2 = 0;
+                    set2p1 = 0;
+                    set2p2 = 0;
+                    stb1 = 0;
+                    stb2 = 0;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: player1Id,
                 decoration: const InputDecoration(
@@ -244,131 +318,207 @@ class _AddMatchPageState extends State<AddMatchPage> {
                   ),
                 ],
               ),
-              scoreSelector(
-                title: 'Set 1',
-                p1: set1p1,
-                p2: set1p2,
-                values: setNumbers,
-                onP1: (v) => set1p1 = v,
-                onP2: (v) => set1p2 = v,
-              ),
-              const SizedBox(height: 8),
-              Text('Odabrano: ${_buildSet(set1p1, set1p2)}'),
-              scoreSelector(
-                title: 'Set 2',
-                p1: set2p1,
-                p2: set2p2,
-                values: setNumbers,
-                onP1: (v) => set2p1 = v,
-                onP2: (v) => set2p2 = v,
-              ),
-              const SizedBox(height: 8),
-              Text('Odabrano: ${_buildSet(set2p1, set2p2)}'),
-              scoreSelector(
-                title: 'Super Tie Break',
-                p1: stb1,
-                p2: stb2,
-                values: stbNumbers,
-                onP1: (v) => stb1 = v,
-                onP2: (v) => stb2 = v,
-              ),
-              const SizedBox(height: 8),
-              Text('Odabrano: ${_buildSet(stb1, stb2)}'),
+              if (isSimpleSeason) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Winter 2026 - jednostavni unos rezultata',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('P1 2:0'),
+                      selected: simpleResult == 'p1-2-0',
+                      onSelected: (_) {
+                        setState(() {
+                          simpleResult = 'p1-2-0';
+                          _applySimpleResultPreset();
+                        });
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('P1 2:1'),
+                      selected: simpleResult == 'p1-2-1',
+                      onSelected: (_) {
+                        setState(() {
+                          simpleResult = 'p1-2-1';
+                          _applySimpleResultPreset();
+                        });
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('P2 2:1'),
+                      selected: simpleResult == 'p2-2-1',
+                      onSelected: (_) {
+                        setState(() {
+                          simpleResult = 'p2-2-1';
+                          _applySimpleResultPreset();
+                        });
+                      },
+                    ),
+                    ChoiceChip(
+                      label: const Text('P2 2:0'),
+                      selected: simpleResult == 'p2-2-0',
+                      onSelected: (_) {
+                        setState(() {
+                          simpleResult = 'p2-2-0';
+                          _applySimpleResultPreset();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  simpleResult == null
+                      ? 'Odaberi rezultat meča'
+                      : 'Odabrani rezultat: ${_simpleResultLabel()}',
+                ),
+              ] else ...[
+                scoreSelector(
+                  title: 'Set 1',
+                  p1: set1p1,
+                  p2: set1p2,
+                  values: setNumbers,
+                  onP1: (v) => set1p1 = v,
+                  onP2: (v) => set1p2 = v,
+                ),
+                const SizedBox(height: 8),
+                Text('Odabrano: ${_buildSet(set1p1, set1p2)}'),
+                scoreSelector(
+                  title: 'Set 2',
+                  p1: set2p1,
+                  p2: set2p2,
+                  values: setNumbers,
+                  onP1: (v) => set2p1 = v,
+                  onP2: (v) => set2p2 = v,
+                ),
+                const SizedBox(height: 8),
+                Text('Odabrano: ${_buildSet(set2p1, set2p2)}'),
+                scoreSelector(
+                  title: 'Super Tie Break',
+                  p1: stb1,
+                  p2: stb2,
+                  values: stbNumbers,
+                  onP1: (v) => stb1 = v,
+                  onP2: (v) => stb2 = v,
+                ),
+                const SizedBox(height: 8),
+                Text('Odabrano: ${_buildSet(stb1, stb2)}'),
+              ],
               const SizedBox(height: 30),
               ElevatedButton(
                 onPressed: isSaving
                     ? null
                     : () async {
-                  if (player1 == null || player2 == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Odaberi oba igrača'),
-                      ),
-                    );
-                    return;
-                  }
+                        if (player1 == null || player2 == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Odaberi oba igrača')),
+                          );
+                          return;
+                        }
 
-                  if (player1Id == player2Id) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Igrač ne može igrati sam protiv sebe'),
-                      ),
-                    );
-                    return;
-                  }
+                        if (player1Id == player2Id) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Igrač ne može igrati sam protiv sebe',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
 
-                  final winnerId = _determineWinnerId();
-                  if (winnerId.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Unesi valjan rezultat meča prije spremanja'),
-                      ),
-                    );
-                    return;
-                  }
+                        if (isSimpleSeason && simpleResult == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Odaberi jednostavni rezultat 2:0 ili 2:1',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
 
-                  String superTieBreakValue = _buildSet(stb1, stb2);
-                  // Ako je rezultat setova 2:0 ili 0:2, ne spremaj super tie break
-                  int s1p1 = set1p1;
-                  int s1p2 = set1p2;
-                  int s2p1 = set2p1;
-                  int s2p2 = set2p2;
-                  int setsWonP1 = 0;
-                  int setsWonP2 = 0;
-                  if (s1p1 > s1p2) setsWonP1++;
-                  if (s1p2 > s1p1) setsWonP2++;
-                  if (s2p1 > s2p2) setsWonP1++;
-                  if (s2p2 > s2p1) setsWonP2++;
-                  if (setsWonP1 == 2 || setsWonP2 == 2) {
-                    superTieBreakValue = "";
-                  }
+                        final winnerId = _determineWinnerId();
+                        if (winnerId.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Unesi valjan rezultat meča prije spremanja',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
 
-                  setState(() {
-                    isSaving = true;
-                  });
+                        String superTieBreakValue = _buildSet(stb1, stb2);
+                        // Ako je rezultat setova 2:0 ili 0:2, ne spremaj super tie break
+                        int s1p1 = set1p1;
+                        int s1p2 = set1p2;
+                        int s2p1 = set2p1;
+                        int s2p2 = set2p2;
+                        int setsWonP1 = 0;
+                        int setsWonP2 = 0;
+                        if (s1p1 > s1p2) setsWonP1++;
+                        if (s1p2 > s1p1) setsWonP2++;
+                        if (s2p1 > s2p2) setsWonP1++;
+                        if (s2p2 > s2p1) setsWonP2++;
+                        if (setsWonP1 == 2 || setsWonP2 == 2) {
+                          superTieBreakValue = "";
+                        }
 
-                  final match = MatchModel(
-                    player1Id: player1!.id ?? '',
-                    player2Id: player2!.id ?? '',
-                    player1Name: player1!.name,
-                    player2Name: player2!.name,
-                    set1: _buildSet(set1p1, set1p2),
-                    set2: _buildSet(set2p1, set2p2),
-                    superTieBreak: superTieBreakValue,
-                    season: season,
-                    playedAt: selectedDate ?? DateTime.now(),
-                    winnerId: winnerId,
-                  );
-                  final messenger = ScaffoldMessenger.of(context);
-                  final navigator = Navigator.of(context);
+                        setState(() {
+                          isSaving = true;
+                        });
 
-                  try {
-                    await firestoreService.addMatch(match);
+                        final match = MatchModel(
+                          player1Id: player1!.id ?? '',
+                          player2Id: player2!.id ?? '',
+                          player1Name: player1!.name,
+                          player2Name: player2!.name,
+                          set1: _buildSet(set1p1, set1p2),
+                          set2: _buildSet(set2p1, set2p2),
+                          superTieBreak: superTieBreakValue,
+                          season: season,
+                          playedAt: selectedDate ?? DateTime.now(),
+                          winnerId: winnerId,
+                          simpleMode: isSimpleSeason,
+                          resultLabel: isSimpleSeason
+                              ? _simpleResultLabel()
+                              : '',
+                        );
+                        final messenger = ScaffoldMessenger.of(context);
+                        final navigator = Navigator.of(context);
 
-                    if (!mounted) return;
+                        try {
+                          await firestoreService.addMatch(match);
 
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Meč je spremljen'),
-                      ),
-                    );
+                          if (!mounted) return;
 
-                    navigator.pop();
-                  } catch (_) {
-                    if (!mounted) return;
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Greška pri spremanju meča'),
-                      ),
-                    );
-                  } finally {
-                    if (mounted) {
-                      setState(() {
-                        isSaving = false;
-                      });
-                    }
-                  }
-                },
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Meč je spremljen')),
+                          );
+
+                          navigator.pop();
+                        } catch (_) {
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Greška pri spremanju meča'),
+                            ),
+                          );
+                        } finally {
+                          if (mounted) {
+                            setState(() {
+                              isSaving = false;
+                            });
+                          }
+                        }
+                      },
                 child: Text(isSaving ? 'SPREMANJE...' : 'SAVE MATCH'),
               ),
             ],

@@ -955,6 +955,10 @@ class PlayerDetailsPage extends StatelessWidget {
   }
 
   String _scoreText(MatchModel match, bool isP1) {
+    if (match.simpleMode && match.resultLabel.trim().isNotEmpty) {
+      return match.resultLabel;
+    }
+
     final parts = <String>[];
 
     final s1 = _parseScore(match.set1);

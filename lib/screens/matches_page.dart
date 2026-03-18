@@ -12,186 +12,197 @@ class MatchesPage extends StatefulWidget {
 }
 
 class _MatchesPageState extends State<MatchesPage> {
-    String _winnerIdFromScores({
-      required MatchModel match,
-      required String set1,
-      required String set2,
-      required String superTieBreak,
-    }) {
-      int player1Sets = 0;
-      int player2Sets = 0;
+  String _winnerIdFromScores({
+    required MatchModel match,
+    required String set1,
+    required String set2,
+    required String superTieBreak,
+  }) {
+    int player1Sets = 0;
+    int player2Sets = 0;
 
-      for (final raw in [set1, set2]) {
-        final parsed = _parseSetScore(raw);
-        if (parsed == null) continue;
-        if (parsed[0] > parsed[1]) player1Sets++;
-        if (parsed[1] > parsed[0]) player2Sets++;
-      }
-
-      final parsedStb = _parseSetScore(superTieBreak);
-      if (parsedStb != null && player1Sets == player2Sets) {
-        if (parsedStb[0] > parsedStb[1]) player1Sets++;
-        if (parsedStb[1] > parsedStb[0]) player2Sets++;
-      }
-
-      if (player1Sets == player2Sets) return '';
-      return player1Sets > player2Sets ? match.player1Id : match.player2Id;
+    for (final raw in [set1, set2]) {
+      final parsed = _parseSetScore(raw);
+      if (parsed == null) continue;
+      if (parsed[0] > parsed[1]) player1Sets++;
+      if (parsed[1] > parsed[0]) player2Sets++;
     }
 
-    void _editMatchDialog(MatchModel match) {
-      final pageContext = context;
-      final set1Controller = TextEditingController(text: match.set1);
-      final set2Controller = TextEditingController(text: match.set2);
-      final stbController = TextEditingController(text: match.superTieBreak);
-      DateTime selectedDate = match.playedAt;
-      bool isSaving = false;
+    final parsedStb = _parseSetScore(superTieBreak);
+    if (parsedStb != null && player1Sets == player2Sets) {
+      if (parsedStb[0] > parsedStb[1]) player1Sets++;
+      if (parsedStb[1] > parsedStb[0]) player2Sets++;
+    }
 
-      showDialog(
-        context: context,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setDialogState) {
-              return AlertDialog(
-                title: const Text('Uredi meč'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: set1Controller,
-                        decoration: const InputDecoration(labelText: 'Set 1 (npr. 6:2)'),
+    if (player1Sets == player2Sets) return '';
+    return player1Sets > player2Sets ? match.player1Id : match.player2Id;
+  }
+
+  void _editMatchDialog(MatchModel match) {
+    final pageContext = context;
+    final set1Controller = TextEditingController(text: match.set1);
+    final set2Controller = TextEditingController(text: match.set2);
+    final stbController = TextEditingController(text: match.superTieBreak);
+    DateTime selectedDate = match.playedAt;
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Uredi meč'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: set1Controller,
+                      decoration: const InputDecoration(
+                        labelText: 'Set 1 (npr. 6:2)',
                       ),
-                      TextField(
-                        controller: set2Controller,
-                        decoration: const InputDecoration(labelText: 'Set 2 (npr. 3:6)'),
+                    ),
+                    TextField(
+                      controller: set2Controller,
+                      decoration: const InputDecoration(
+                        labelText: 'Set 2 (npr. 3:6)',
                       ),
-                      TextField(
-                        controller: stbController,
-                        decoration: const InputDecoration(labelText: 'Super Tie Break (npr. 10:8)'),
+                    ),
+                    TextField(
+                      controller: stbController,
+                      decoration: const InputDecoration(
+                        labelText: 'Super Tie Break (npr. 10:8)',
                       ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          const Text('Datum: '),
-                          Expanded(
-                            child: Text(
-                              '${selectedDate.day}.${selectedDate.month}.${selectedDate.year}',
-                            ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Text('Datum: '),
+                        Expanded(
+                          child: Text(
+                            '${selectedDate.day}.${selectedDate.month}.${selectedDate.year}',
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.calendar_today),
-                            onPressed: isSaving
-                                ? null
-                                : () async {
-                                    final now = DateTime.now();
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: selectedDate,
-                                      firstDate: DateTime(now.year - 5),
-                                      lastDate: DateTime(now.year + 1),
-                                    );
-                                    if (picked != null) {
-                                      setDialogState(() {
-                                        selectedDate = picked;
-                                      });
-                                    }
-                                  },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.calendar_today),
+                          onPressed: isSaving
+                              ? null
+                              : () async {
+                                  final now = DateTime.now();
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: selectedDate,
+                                    firstDate: DateTime(now.year - 5),
+                                    lastDate: DateTime(now.year + 1),
+                                  );
+                                  if (picked != null) {
+                                    setDialogState(() {
+                                      selectedDate = picked;
+                                    });
+                                  }
+                                },
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: isSaving ? null : () => Navigator.pop(context),
-                    child: const Text('Odustani'),
-                  ),
-                  ElevatedButton(
-                    onPressed: isSaving
-                        ? null
-                        : () async {
-                            final set1 = set1Controller.text.trim();
-                            final set2 = set2Controller.text.trim();
-                            final superTieBreak = stbController.text.trim();
-                            final winnerId = _winnerIdFromScores(
-                              match: match,
-                              set1: set1,
-                              set2: set2,
-                              superTieBreak: superTieBreak,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(context),
+                  child: const Text('Odustani'),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final set1 = set1Controller.text.trim();
+                          final set2 = set2Controller.text.trim();
+                          final superTieBreak = stbController.text.trim();
+                          final winnerId = _winnerIdFromScores(
+                            match: match,
+                            set1: set1,
+                            set2: set2,
+                            superTieBreak: superTieBreak,
+                          );
+
+                          if (winnerId.isEmpty) {
+                            ScaffoldMessenger.of(pageContext).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Rezultat nije valjan. Provjeri setove i tie-break.',
+                                ),
+                              ),
                             );
+                            return;
+                          }
 
-                            if (winnerId.isEmpty) {
-                              ScaffoldMessenger.of(pageContext).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Rezultat nije valjan. Provjeri setove i tie-break.'),
+                          setDialogState(() {
+                            isSaving = true;
+                          });
+
+                          final updatedMatch = MatchModel(
+                            id: match.id,
+                            player1Id: match.player1Id,
+                            player2Id: match.player2Id,
+                            player1Name: match.player1Name,
+                            player2Name: match.player2Name,
+                            set1: set1,
+                            set2: set2,
+                            superTieBreak: superTieBreak,
+                            season: match.season,
+                            playedAt: selectedDate,
+                            winnerId: winnerId,
+                            simpleMode: match.simpleMode,
+                            resultLabel: match.resultLabel,
+                          );
+                          try {
+                            await firestoreService.updateMatch(updatedMatch);
+                            await firestoreService
+                                .rebuildDerivedDataFromMatches();
+
+                            if (!pageContext.mounted) return;
+                            Navigator.pop(pageContext);
+                            ScaffoldMessenger.of(pageContext).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Meč ažuriran i statistike su usklađene',
                                 ),
-                              );
-                              return;
-                            }
-
-                            setDialogState(() {
-                              isSaving = true;
-                            });
-
-                            final updatedMatch = MatchModel(
-                              id: match.id,
-                              player1Id: match.player1Id,
-                              player2Id: match.player2Id,
-                              player1Name: match.player1Name,
-                              player2Name: match.player2Name,
-                              set1: set1,
-                              set2: set2,
-                              superTieBreak: superTieBreak,
-                              season: match.season,
-                              playedAt: selectedDate,
-                              winnerId: winnerId,
+                              ),
                             );
-                            try {
-                              await firestoreService.updateMatch(updatedMatch);
-                              await firestoreService.rebuildDerivedDataFromMatches();
-
-                              if (!pageContext.mounted) return;
-                              Navigator.pop(pageContext);
-                              ScaffoldMessenger.of(pageContext).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Meč ažuriran i statistike su usklađene'),
-                                ),
-                              );
-                            } catch (_) {
-                              if (!pageContext.mounted) return;
-                              ScaffoldMessenger.of(pageContext).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Greška pri ažuriranju meča.'),
-                                ),
-                              );
-                            } finally {
-                              if (context.mounted) {
-                                setDialogState(() {
-                                  isSaving = false;
-                                });
-                              }
+                          } catch (_) {
+                            if (!pageContext.mounted) return;
+                            ScaffoldMessenger.of(pageContext).showSnackBar(
+                              const SnackBar(
+                                content: Text('Greška pri ažuriranju meča.'),
+                              ),
+                            );
+                          } finally {
+                            if (context.mounted) {
+                              setDialogState(() {
+                                isSaving = false;
+                              });
                             }
-                          },
-                    child: Text(isSaving ? 'Spremanje...' : 'Spremi'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      ).whenComplete(() {
-        set1Controller.dispose();
-        set2Controller.dispose();
-        stbController.dispose();
-      });
-    }
+                          }
+                        },
+                  child: Text(isSaving ? 'Spremanje...' : 'Spremi'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      set1Controller.dispose();
+      set2Controller.dispose();
+      stbController.dispose();
+    });
+  }
+
   final FirestoreService firestoreService = FirestoreService();
 
-  final List<String> seasons = const [
-    'Winter 2026',
-    'Summer 2026',
-  ];
+  final List<String> seasons = const ['Winter 2026', 'Summer 2026'];
 
   String selectedSeason = 'Winter 2026';
   String selectedLeague = '1';
@@ -229,7 +240,10 @@ class _MatchesPageState extends State<MatchesPage> {
       ..sort((a, b) => a.name.compareTo(b.name));
   }
 
-  bool _matchBelongsToSelectedLeague(MatchModel match, List<Player> allPlayers) {
+  bool _matchBelongsToSelectedLeague(
+    MatchModel match,
+    List<Player> allPlayers,
+  ) {
     final leaguePlayers = _playersForSelectedLeague(allPlayers);
 
     final ids = leaguePlayers
@@ -239,21 +253,26 @@ class _MatchesPageState extends State<MatchesPage> {
 
     final names = leaguePlayers.map((p) => p.name).toSet();
 
-    final hasIds = match.player1Id.isNotEmpty &&
+    final hasIds =
+        match.player1Id.isNotEmpty &&
         match.player2Id.isNotEmpty &&
         ids.contains(match.player1Id) &&
         ids.contains(match.player2Id);
 
     if (hasIds) return true;
 
-    final hasNames = names.contains(match.player1Name) &&
-        names.contains(match.player2Name);
+    final hasNames =
+        names.contains(match.player1Name) && names.contains(match.player2Name);
 
     return hasNames;
   }
 
   /// 🔥 ATP STYLE SCORE FORMAT
   String _buildScore(MatchModel match) {
+    if (match.simpleMode && match.resultLabel.trim().isNotEmpty) {
+      return '${match.season} • ${match.resultLabel}';
+    }
+
     final set1 = match.set1.replaceAll(':', '–');
     final set2 = match.set2.replaceAll(':', '–');
 
@@ -400,7 +419,10 @@ class _MatchesPageState extends State<MatchesPage> {
     return p1Sets > p2Sets;
   }
 
-  bool? _didSelectedP1Win(MatchModel selectedMatch, MatchModel historicalMatch) {
+  bool? _didSelectedP1Win(
+    MatchModel selectedMatch,
+    MatchModel historicalMatch,
+  ) {
     final selectedP1Id = selectedMatch.player1Id;
     final selectedP1Name = selectedMatch.player1Name.trim().toLowerCase();
 
@@ -434,11 +456,13 @@ class _MatchesPageState extends State<MatchesPage> {
     return selectedP1IsPlayer1InHistorical ? player1Won : !player1Won;
   }
 
-  void _showHeadToHeadDialog(MatchModel selectedMatch, List<MatchModel> allMatches) {
-    final pairMatches = allMatches
-        .where((m) => _samePair(selectedMatch, m))
-        .toList()
-      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+  void _showHeadToHeadDialog(
+    MatchModel selectedMatch,
+    List<MatchModel> allMatches,
+  ) {
+    final pairMatches =
+        allMatches.where((m) => _samePair(selectedMatch, m)).toList()
+          ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
 
     int p1Wins = 0;
     int p2Wins = 0;
@@ -470,7 +494,9 @@ class _MatchesPageState extends State<MatchesPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('${selectedMatch.player1Name} vs ${selectedMatch.player2Name}'),
+                Text(
+                  '${selectedMatch.player1Name} vs ${selectedMatch.player2Name}',
+                ),
                 const SizedBox(height: 10),
                 Text('Ukupno mečeva: $resolvedMatches'),
                 Text('${selectedMatch.player1Name}: $p1Wins pobjeda'),
@@ -504,17 +530,12 @@ class _MatchesPageState extends State<MatchesPage> {
         final playersInLeague = _playersForSelectedLeague(allPlayers);
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Matches'),
-            centerTitle: true,
-          ),
+          appBar: AppBar(title: const Text('Matches'), centerTitle: true),
           body: StreamBuilder<List<MatchModel>>(
             stream: firestoreService.getMatches(),
             builder: (context, matchesSnapshot) {
-              if (matchesSnapshot.connectionState ==
-                      ConnectionState.waiting ||
-                  playersSnapshot.connectionState ==
-                      ConnectionState.waiting) {
+              if (matchesSnapshot.connectionState == ConnectionState.waiting ||
+                  playersSnapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
 
@@ -523,8 +544,7 @@ class _MatchesPageState extends State<MatchesPage> {
               final matches = allMatches.where((match) {
                 if (match.season != selectedSeason) return false;
                 return _matchBelongsToSelectedLeague(match, allPlayers);
-              }).toList()
-                ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+              }).toList()..sort((a, b) => b.playedAt.compareTo(a.playedAt));
 
               return Column(
                 children: [
@@ -561,10 +581,22 @@ class _MatchesPageState extends State<MatchesPage> {
                       DropdownButton<String>(
                         value: selectedLeague,
                         items: const [
-                          DropdownMenuItem(value: '1', child: Text('1.(ROLAND GARROS)')),
-                          DropdownMenuItem(value: '2', child: Text('2.(AUSTRALIAN OPEN)')),
-                          DropdownMenuItem(value: '3', child: Text('3.(WIMBLEDON)')),
-                          DropdownMenuItem(value: '4', child: Text('4.(US OPEN)')),
+                          DropdownMenuItem(
+                            value: '1',
+                            child: Text('1.(ROLAND GARROS)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '2',
+                            child: Text('2.(AUSTRALIAN OPEN)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '3',
+                            child: Text('3.(WIMBLEDON)'),
+                          ),
+                          DropdownMenuItem(
+                            value: '4',
+                            child: Text('4.(US OPEN)'),
+                          ),
                         ],
                         onChanged: (value) {
                           if (value == null) return;
@@ -597,15 +629,14 @@ class _MatchesPageState extends State<MatchesPage> {
                                   vertical: 8,
                                 ),
                                 child: ListTile(
-                                  onTap: () => _showHeadToHeadDialog(
-                                    match,
-                                    allMatches,
-                                  ),
+                                  onTap: () =>
+                                      _showHeadToHeadDialog(match, allMatches),
                                   title: Text(
                                     '${match.player1Name} vs ${match.player2Name}',
                                   ),
                                   subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         '${_buildScore(match)}\n${_formatDate(match.playedAt)}\n${_leagueLabel(selectedLeague)}',
@@ -622,7 +653,9 @@ class _MatchesPageState extends State<MatchesPage> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: Colors.green,
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
@@ -653,12 +686,14 @@ class _MatchesPageState extends State<MatchesPage> {
                                       IconButton(
                                         icon: const Icon(Icons.edit),
                                         tooltip: 'Uredi meč',
-                                        onPressed: () => _editMatchDialog(match),
+                                        onPressed: () =>
+                                            _editMatchDialog(match),
                                       ),
                                       IconButton(
                                         icon: const Icon(Icons.delete),
                                         tooltip: 'Obriši meč',
-                                        onPressed: () => _confirmDeleteMatch(match),
+                                        onPressed: () =>
+                                            _confirmDeleteMatch(match),
                                       ),
                                     ],
                                   ),
@@ -676,9 +711,7 @@ class _MatchesPageState extends State<MatchesPage> {
               if (playersInLeague.length < 2) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text(
-                      'Trebaš barem 2 igrača u odabranoj ligi.',
-                    ),
+                    content: Text('Trebaš barem 2 igrača u odabranoj ligi.'),
                   ),
                 );
                 return;
@@ -686,9 +719,7 @@ class _MatchesPageState extends State<MatchesPage> {
 
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const AddMatchPage(),
-                ),
+                MaterialPageRoute(builder: (context) => const AddMatchPage()),
               );
             },
             child: const Icon(Icons.add),

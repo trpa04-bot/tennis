@@ -13,9 +13,7 @@ import 'screens/auth_gate_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(const TennisClubApp());
 }
@@ -51,9 +49,7 @@ class TennisClubApp extends StatelessWidget {
         final theme = Theme.of(context);
 
         return MediaQuery(
-          data: mediaQuery.copyWith(
-            textScaler: TextScaler.linear(textScale),
-          ),
+          data: mediaQuery.copyWith(textScaler: TextScaler.linear(textScale)),
           child: Theme(
             data: theme.copyWith(
               iconTheme: IconThemeData(size: iconSize),
@@ -134,10 +130,7 @@ class _AppVersionWatcherState extends State<AppVersionWatcher> {
       );
       final response = await http.get(
         uri,
-        headers: const {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-        },
+        headers: const {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
       );
 
       if (response.statusCode != 200) {

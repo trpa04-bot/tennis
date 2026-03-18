@@ -12,6 +12,8 @@ class MatchModel {
   final String season;
   final String winnerId;
   final DateTime playedAt;
+  final bool simpleMode;
+  final String resultLabel;
 
   MatchModel({
     this.id,
@@ -25,6 +27,8 @@ class MatchModel {
     required this.season,
     required this.winnerId,
     required this.playedAt,
+    this.simpleMode = false,
+    this.resultLabel = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -39,6 +43,8 @@ class MatchModel {
       'season': season,
       'winnerId': winnerId,
       'playedAt': Timestamp.fromDate(playedAt),
+      'simpleMode': simpleMode,
+      'resultLabel': resultLabel,
     };
   }
 
@@ -69,6 +75,8 @@ class MatchModel {
       season: map['season']?.toString() ?? 'Winter 2026',
       winnerId: map['winnerId']?.toString() ?? '',
       playedAt: parsedPlayedAt,
+      simpleMode: map['simpleMode'] == true,
+      resultLabel: map['resultLabel']?.toString() ?? '',
     );
   }
 }

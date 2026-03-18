@@ -92,9 +92,9 @@ class FirestoreService {
     final newLeague = _normalizeLeague(player.league);
 
     final updatedRating = oldLeague == newLeague
-      ? player.rating
+        ? player.rating
         : _shiftRatingForLeagueChange(
-        currentRating: player.rating,
+            currentRating: player.rating,
             fromLeague: oldLeague,
             toLeague: newLeague,
           );
@@ -146,10 +146,7 @@ class FirestoreService {
   }
 
   Future<void> unfreezePlayer(String playerId) async {
-    await players.doc(playerId).update({
-      'frozen': false,
-      'frozenAt': null,
-    });
+    await players.doc(playerId).update({'frozen': false, 'frozenAt': null});
   }
 
   Future<void> archivePlayer(String playerId) async {
@@ -162,12 +159,10 @@ class FirestoreService {
     );
 
     final matchSnapshot = await matches.get();
-    final allMatches = matchSnapshot.docs
-        .map((doc) {
-          final data = Map<String, dynamic>.from(doc.data() as Map);
-          return MatchModel.fromMap(data, id: doc.id);
-        })
-        .toList();
+    final allMatches = matchSnapshot.docs.map((doc) {
+      final data = Map<String, dynamic>.from(doc.data() as Map);
+      return MatchModel.fromMap(data, id: doc.id);
+    }).toList();
 
     final involvedMatches = allMatches.where((m) {
       final hasIds = m.player1Id.isNotEmpty || m.player2Id.isNotEmpty;
@@ -199,17 +194,17 @@ class FirestoreService {
   // MATCHES
 
   Stream<List<MatchModel>> getMatches() {
-    return matches.orderBy('playedAt', descending: true).snapshots().map(
-      (snapshot) {
-        final items = snapshot.docs.map((doc) {
-          final data = Map<String, dynamic>.from(doc.data() as Map);
-          return MatchModel.fromMap(data, id: doc.id);
-        }).toList();
+    return matches.orderBy('playedAt', descending: true).snapshots().map((
+      snapshot,
+    ) {
+      final items = snapshot.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data() as Map);
+        return MatchModel.fromMap(data, id: doc.id);
+      }).toList();
 
-        items.sort((a, b) => b.playedAt.compareTo(a.playedAt));
-        return items;
-      },
-    );
+      items.sort((a, b) => b.playedAt.compareTo(a.playedAt));
+      return items;
+    });
   }
 
   Future<void> addMatch(MatchModel match) async {
@@ -227,13 +222,17 @@ class FirestoreService {
       season: match.season,
       winnerId: match.winnerId,
       playedAt: match.playedAt,
+      simpleMode: match.simpleMode,
+      resultLabel: match.resultLabel,
     );
     await _applyEloForMatch(savedMatch);
-    final earnedAchievements = await _checkAndGrantAchievements(savedMatch);
-    await _logActivitiesForMatch(
-      savedMatch,
-      earnedAchievements: earnedAchievements,
-    );
+    if (!_isSimpleSeason(savedMatch.season)) {
+      final earnedAchievements = await _checkAndGrantAchievements(savedMatch);
+      await _logActivitiesForMatch(
+        savedMatch,
+        earnedAchievements: earnedAchievements,
+      );
+    }
     debugPrint('Match saved successfully');
   }
 
@@ -260,58 +259,74 @@ class FirestoreService {
         .limit(limit)
         .snapshots()
         .asyncExpand((activitySnapshot) async* {
-      if (activitySnapshot.docs.isNotEmpty) {
-        yield activitySnapshot.docs
-            .map((doc) {
-              final data = Map<String, dynamic>.from(doc.data() as Map);
-              return ActivityFeedItem.fromMap(data, id: doc.id);
-            })
-            .where((item) => season == null || season.isEmpty || item.season == season)
-            .toList();
-        return;
-      }
+          if (activitySnapshot.docs.isNotEmpty) {
+            yield activitySnapshot.docs
+                .map((doc) {
+                  final data = Map<String, dynamic>.from(doc.data() as Map);
+                  return ActivityFeedItem.fromMap(data, id: doc.id);
+                })
+                .where(
+                  (item) =>
+                      season == null || season.isEmpty || item.season == season,
+                )
+                .toList();
+            return;
+          }
 
-      yield* players.snapshots().asyncExpand((playerSnapshot) async* {
-      final allPlayers = playerSnapshot.docs
-          .map(
-            (doc) => Player.fromMap(
-              Map<String, dynamic>.from(doc.data() as Map),
-              id: doc.id,
-            ),
-          )
-          .where((player) => !player.archived)
-          .toList();
+          yield* players.snapshots().asyncExpand((playerSnapshot) async* {
+            final allPlayers = playerSnapshot.docs
+                .map(
+                  (doc) => Player.fromMap(
+                    Map<String, dynamic>.from(doc.data() as Map),
+                    id: doc.id,
+                  ),
+                )
+                .where((player) => !player.archived)
+                .toList();
 
-      yield* matches.snapshots().map((matchSnapshot) {
-        final allMatches = matchSnapshot.docs
-            .map((doc) {
-              final data = Map<String, dynamic>.from(doc.data() as Map);
-              return MatchModel.fromMap(data, id: doc.id);
-            })
-            .where((match) => _resolveWinnerId(match, _parseSetWins(match)).isNotEmpty)
-            .where((match) => season == null || season.isEmpty || match.season == season)
-            .toList()
-          ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+            yield* matches.snapshots().map((matchSnapshot) {
+              final allMatches =
+                  matchSnapshot.docs
+                      .map((doc) {
+                        final data = Map<String, dynamic>.from(
+                          doc.data() as Map,
+                        );
+                        return MatchModel.fromMap(data, id: doc.id);
+                      })
+                      .where(
+                        (match) => _resolveWinnerId(
+                          match,
+                          _parseSetWins(match),
+                        ).isNotEmpty,
+                      )
+                      .where(
+                        (match) =>
+                            season == null ||
+                            season.isEmpty ||
+                            match.season == season,
+                      )
+                      .toList()
+                    ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
 
-        final items = <ActivityFeedItem>[];
+              final items = <ActivityFeedItem>[];
 
-        for (final match in allMatches.take(limit)) {
-          items.add(_buildMatchActivity(match));
-          items.addAll(_buildAchievementActivities(match));
-          items.addAll(
-            _buildMovementActivities(
-              match: match,
-              allPlayers: allPlayers,
-              allMatches: allMatches,
-            ),
-          );
-        }
+              for (final match in allMatches.take(limit)) {
+                items.add(_buildMatchActivity(match));
+                items.addAll(_buildAchievementActivities(match));
+                items.addAll(
+                  _buildMovementActivities(
+                    match: match,
+                    allPlayers: allPlayers,
+                    allMatches: allMatches,
+                  ),
+                );
+              }
 
-        items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-        return items.take(limit).toList();
-      });
-    });
-    });
+              items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+              return items.take(limit).toList();
+            });
+          });
+        });
   }
 
   // LEAGUE TABLE STREAM
@@ -325,77 +340,83 @@ class FirestoreService {
         .where('league', isEqualTo: league)
         .snapshots()
         .asyncExpand((playerSnapshot) async* {
-      final playersInLeague = playerSnapshot.docs
-          .map(
-            (doc) => Player.fromMap(
-              Map<String, dynamic>.from(doc.data() as Map),
-              id: doc.id,
-            ),
-          )
-          .where((player) => !player.frozen && !player.archived)
-          .toList();
+          final playersInLeague = playerSnapshot.docs
+              .map(
+                (doc) => Player.fromMap(
+                  Map<String, dynamic>.from(doc.data() as Map),
+                  id: doc.id,
+                ),
+              )
+              .where((player) => !player.frozen && !player.archived)
+              .toList();
 
-      final configDoc = await _db.collection('config').doc('trend').get();
-      final resetAt = (configDoc.data()?['resetAt'] as Timestamp?)?.toDate();
-
-      yield* _db.collection('matches').snapshots().map((matchSnapshot) {
-        final allMatches = matchSnapshot.docs
-            .map((doc) {
-              final data = Map<String, dynamic>.from(doc.data() as Map);
-              return MatchModel.fromMap(data, id: doc.id);
-            })
-            .toList();
-
-        final filteredMatches = allMatches.where((match) {
-          final belongsToLeague = _matchBelongsToLeague(
-            match: match,
+          final configDoc = await _db.collection('config').doc('trend').get();
+          final resetAt = (configDoc.data()?['resetAt'] as Timestamp?)
+              ?.toDate();
+          final seasonSeeds = await _getSeasonSeedsForLeague(
+            league: league,
+            season: season,
             playersInLeague: playersInLeague,
           );
 
-          if (!belongsToLeague) return false;
+          yield* _db.collection('matches').snapshots().map((matchSnapshot) {
+            final allMatches = matchSnapshot.docs.map((doc) {
+              final data = Map<String, dynamic>.from(doc.data() as Map);
+              return MatchModel.fromMap(data, id: doc.id);
+            }).toList();
 
-          if (season != null && season.isNotEmpty) {
-            return match.season == season;
-          }
+            final filteredMatches = allMatches.where((match) {
+              final belongsToLeague = _matchBelongsToLeague(
+                match: match,
+                playersInLeague: playersInLeague,
+              );
 
-          return true;
-        }).toList();
+              if (!belongsToLeague) return false;
 
-        filteredMatches.sort((a, b) => b.playedAt.compareTo(a.playedAt));
+              if (season != null && season.isNotEmpty) {
+                return match.season == season;
+              }
 
-        List<MatchModel> previousMatches;
-        if (filteredMatches.length >= 2) {
-          final latestDate = filteredMatches.first.playedAt;
-          previousMatches = filteredMatches
-              .where((m) => m.playedAt.isBefore(latestDate))
-              .where((m) => resetAt == null || m.playedAt.isAfter(resetAt))
-              .toList();
-          // Fallback only when no reset: all matches share same timestamp
-          if (previousMatches.isEmpty && resetAt == null) {
-            previousMatches = filteredMatches.sublist(1);
-          }
-        } else {
-          previousMatches = <MatchModel>[];
-        }
+              return true;
+            }).toList();
 
-        final currentTable = _buildLeagueTable(
-          players: playersInLeague,
-          matches: filteredMatches,
-        );
+            filteredMatches.sort((a, b) => b.playedAt.compareTo(a.playedAt));
 
-        final previousTable = _buildLeagueTable(
-          players: playersInLeague,
-          matches: previousMatches,
-        );
+            List<MatchModel> previousMatches;
+            if (filteredMatches.length >= 2) {
+              final latestDate = filteredMatches.first.playedAt;
+              previousMatches = filteredMatches
+                  .where((m) => m.playedAt.isBefore(latestDate))
+                  .where((m) => resetAt == null || m.playedAt.isAfter(resetAt))
+                  .toList();
+              // Fallback only when no reset: all matches share same timestamp
+              if (previousMatches.isEmpty && resetAt == null) {
+                previousMatches = filteredMatches.sublist(1);
+              }
+            } else {
+              previousMatches = <MatchModel>[];
+            }
 
-        _applyMovementAndChaseData(
-          currentTable: currentTable,
-          previousTable: previousTable,
-        );
+            final currentTable = _buildLeagueTable(
+              players: playersInLeague,
+              matches: filteredMatches,
+              seasonSeeds: seasonSeeds,
+            );
 
-        return currentTable;
-      });
-    });
+            final previousTable = _buildLeagueTable(
+              players: playersInLeague,
+              matches: previousMatches,
+              seasonSeeds: seasonSeeds,
+            );
+
+            _applyMovementAndChaseData(
+              currentTable: currentTable,
+              previousTable: previousTable,
+            );
+
+            return currentTable;
+          });
+        });
   }
 
   // LEAGUE TABLE ONCE (za promotions)
@@ -404,8 +425,10 @@ class FirestoreService {
     required String league,
     String? season,
   }) async {
-    final playerSnapshot =
-        await _db.collection('players').where('league', isEqualTo: league).get();
+    final playerSnapshot = await _db
+        .collection('players')
+        .where('league', isEqualTo: league)
+        .get();
 
     final playersInLeague = playerSnapshot.docs
         .map(
@@ -419,12 +442,10 @@ class FirestoreService {
 
     final matchSnapshot = await _db.collection('matches').get();
 
-    final allMatches = matchSnapshot.docs
-        .map((doc) {
-          final data = Map<String, dynamic>.from(doc.data() as Map);
-          return MatchModel.fromMap(data, id: doc.id);
-        })
-        .toList();
+    final allMatches = matchSnapshot.docs.map((doc) {
+      final data = Map<String, dynamic>.from(doc.data() as Map);
+      return MatchModel.fromMap(data, id: doc.id);
+    }).toList();
 
     final filteredMatches = allMatches.where((match) {
       final belongsToLeague = _matchBelongsToLeague(
@@ -440,6 +461,12 @@ class FirestoreService {
 
       return true;
     }).toList();
+
+    final seasonSeeds = await _getSeasonSeedsForLeague(
+      league: league,
+      season: season,
+      playersInLeague: playersInLeague,
+    );
 
     filteredMatches.sort((a, b) => b.playedAt.compareTo(a.playedAt));
 
@@ -463,11 +490,13 @@ class FirestoreService {
     final currentTable = _buildLeagueTable(
       players: playersInLeague,
       matches: filteredMatches,
+      seasonSeeds: seasonSeeds,
     );
 
     final previousTable = _buildLeagueTable(
       players: playersInLeague,
       matches: previousMatches,
+      seasonSeeds: seasonSeeds,
     );
 
     _applyMovementAndChaseData(
@@ -480,28 +509,26 @@ class FirestoreService {
 
   // PROMOTIONS
 
-  Future<void> applyPromotionsAndRelegations({
-    required String season,
-  }) async {
+  Future<void> applyPromotionsAndRelegations({required String season}) async {
     final league1 = await getLeagueTableOnce(league: '1', season: season);
     final league2 = await getLeagueTableOnce(league: '2', season: season);
     final league3 = await getLeagueTableOnce(league: '3', season: season);
     final league4 = await getLeagueTableOnce(league: '4', season: season);
 
-    final relegatedFrom1 =
-        league1.length > 4 ? league1.sublist(league1.length - 4) : [];
-    final promotedFrom2 =
-        league2.length >= 4 ? league2.sublist(0, 4) : [];
+    final relegatedFrom1 = league1.length > 4
+        ? league1.sublist(league1.length - 4)
+        : [];
+    final promotedFrom2 = league2.length >= 4 ? league2.sublist(0, 4) : [];
 
-    final relegatedFrom2 =
-        league2.length > 4 ? league2.sublist(league2.length - 4) : [];
-    final promotedFrom3 =
-        league3.length >= 4 ? league3.sublist(0, 4) : [];
+    final relegatedFrom2 = league2.length > 4
+        ? league2.sublist(league2.length - 4)
+        : [];
+    final promotedFrom3 = league3.length >= 4 ? league3.sublist(0, 4) : [];
 
-    final relegatedFrom3 =
-        league3.length > 4 ? league3.sublist(league3.length - 4) : [];
-    final promotedFrom4 =
-        league4.length >= 4 ? league4.sublist(0, 4) : [];
+    final relegatedFrom3 = league3.length > 4
+        ? league3.sublist(league3.length - 4)
+        : [];
+    final promotedFrom4 = league4.length >= 4 ? league4.sublist(0, 4) : [];
 
     final batch = _db.batch();
 
@@ -563,6 +590,62 @@ class FirestoreService {
     return league;
   }
 
+  bool _isSimpleSeason(String season) => season == 'Winter 2026';
+
+  Future<Map<String, _SeasonTableSeed>> _getSeasonSeedsForLeague({
+    required String league,
+    required String? season,
+    required List<Player> playersInLeague,
+  }) async {
+    if (season == null || season.isEmpty) return const {};
+
+    final snapshot = await _db
+        .collection('season_table_seeds')
+        .where('season', isEqualTo: season)
+        .where('league', isEqualTo: league)
+        .get();
+
+    if (snapshot.docs.isEmpty) return const {};
+
+    final byId = <String, _SeasonTableSeed>{};
+    final byNormalizedName = <String, _SeasonTableSeed>{};
+
+    for (final doc in snapshot.docs) {
+      final data = Map<String, dynamic>.from(doc.data() as Map);
+      final seed = _SeasonTableSeed(
+        playerId: data['playerId']?.toString() ?? '',
+        playerName: data['playerName']?.toString() ?? '',
+        played: int.tryParse(data['played']?.toString() ?? '0') ?? 0,
+        points: int.tryParse(data['points']?.toString() ?? '0') ?? 0,
+        rank: int.tryParse(data['rank']?.toString() ?? '0') ?? 0,
+      );
+
+      if (seed.playerId.isNotEmpty) {
+        byId[seed.playerId] = seed;
+      }
+
+      if (seed.playerName.trim().isNotEmpty) {
+        byNormalizedName[_normalizePlayerName(seed.playerName)] = seed;
+      }
+    }
+
+    final resolved = <String, _SeasonTableSeed>{};
+    for (final player in playersInLeague) {
+      final id = player.id ?? '';
+      if (id.isNotEmpty && byId.containsKey(id)) {
+        resolved[id] = byId[id]!;
+        continue;
+      }
+
+      final byName = byNormalizedName[_normalizePlayerName(player.name)];
+      if (byName != null && id.isNotEmpty) {
+        resolved[id] = byName;
+      }
+    }
+
+    return resolved;
+  }
+
   int _baseRatingForLeague(String league) {
     switch (_normalizeLeague(league)) {
       case '1':
@@ -618,14 +701,18 @@ class FirestoreService {
     await flushBatch();
 
     final matchSnapshot = await matches.get();
-    final allMatches = matchSnapshot.docs
-        .map((doc) {
-          final data = Map<String, dynamic>.from(doc.data() as Map);
-          return MatchModel.fromMap(data, id: doc.id);
-        })
-        .where((match) => _resolveWinnerId(match, _parseSetWins(match)).isNotEmpty)
-        .toList()
-      ..sort((a, b) => a.playedAt.compareTo(b.playedAt));
+    final allMatches =
+        matchSnapshot.docs
+            .map((doc) {
+              final data = Map<String, dynamic>.from(doc.data() as Map);
+              return MatchModel.fromMap(data, id: doc.id);
+            })
+            .where(
+              (match) =>
+                  _resolveWinnerId(match, _parseSetWins(match)).isNotEmpty,
+            )
+            .toList()
+          ..sort((a, b) => a.playedAt.compareTo(b.playedAt));
 
     for (final match in allMatches) {
       await _applyEloForMatch(match);
@@ -707,7 +794,8 @@ class FirestoreService {
     final p1IsUnderdog = player1Rating < player2Rating;
     final p2IsUnderdog = player2Rating < player1Rating;
 
-    final isUpset = (player1Won && p1IsUnderdog) || (!player1Won && p2IsUnderdog);
+    final isUpset =
+        (player1Won && p1IsUnderdog) || (!player1Won && p2IsUnderdog);
 
     if (!isUpset) return 1.0;
 
@@ -772,7 +860,10 @@ class FirestoreService {
     final trimmedName = playerName.trim();
     if (trimmedName.isEmpty) return '';
 
-    final exactSnapshot = await players.where('name', isEqualTo: trimmedName).limit(1).get();
+    final exactSnapshot = await players
+        .where('name', isEqualTo: trimmedName)
+        .limit(1)
+        .get();
     if (exactSnapshot.docs.isNotEmpty) {
       return exactSnapshot.docs.first.id;
     }
@@ -819,9 +910,11 @@ class FirestoreService {
     }
 
     final normalizedName = _normalizePlayerName(playerName);
-    final isPlayer1 = match.player1Id == playerId ||
+    final isPlayer1 =
+        match.player1Id == playerId ||
         _normalizePlayerName(match.player1Name) == normalizedName;
-    final isPlayer2 = match.player2Id == playerId ||
+    final isPlayer2 =
+        match.player2Id == playerId ||
         _normalizePlayerName(match.player2Name) == normalizedName;
 
     if (isPlayer1) {
@@ -884,11 +977,7 @@ class FirestoreService {
       }
     }
 
-    return {
-      'played': played,
-      'wins': wins,
-      'losses': losses,
-    };
+    return {'played': played, 'wins': wins, 'losses': losses};
   }
 
   bool? _didPlayer1Win(MatchModel match) {
@@ -912,8 +1001,12 @@ class FirestoreService {
 
   ActivityFeedItem _buildMatchActivity(MatchModel match) {
     final winnerId = _resolveWinnerId(match, _parseSetWins(match));
-    final winnerName = winnerId == match.player1Id ? match.player1Name : match.player2Name;
-    final loserName = winnerId == match.player1Id ? match.player2Name : match.player1Name;
+    final winnerName = winnerId == match.player1Id
+        ? match.player1Name
+        : match.player2Name;
+    final loserName = winnerId == match.player1Id
+        ? match.player2Name
+        : match.player1Name;
 
     return ActivityFeedItem(
       timestamp: match.playedAt,
@@ -927,7 +1020,9 @@ class FirestoreService {
     final winnerId = _resolveWinnerId(match, _parseSetWins(match));
     if (winnerId.isEmpty) return const [];
 
-    final winnerName = winnerId == match.player1Id ? match.player1Name : match.player2Name;
+    final winnerName = winnerId == match.player1Id
+        ? match.player1Name
+        : match.player2Name;
     final achievements = _activityAchievementsForMatch(match, winnerId);
 
     return achievements
@@ -951,22 +1046,43 @@ class FirestoreService {
     if (league.isEmpty) return const [];
 
     final leaguePlayers = allPlayers
-        .where((player) => !player.frozen && !player.archived && _normalizeLeague(player.league) == league)
+        .where(
+          (player) =>
+              !player.frozen &&
+              !player.archived &&
+              _normalizeLeague(player.league) == league,
+        )
         .toList();
     if (leaguePlayers.isEmpty) return const [];
 
     final upToMatch = allMatches
-        .where((m) => m.playedAt.isBefore(match.playedAt) || m.playedAt.isAtSameMomentAs(match.playedAt))
+        .where(
+          (m) =>
+              m.playedAt.isBefore(match.playedAt) ||
+              m.playedAt.isAtSameMomentAs(match.playedAt),
+        )
         .where((m) => m.season == match.season)
-        .where((m) => _matchBelongsToLeague(match: m, playersInLeague: leaguePlayers))
+        .where(
+          (m) =>
+              _matchBelongsToLeague(match: m, playersInLeague: leaguePlayers),
+        )
         .toList();
 
     final beforeMatch = upToMatch.where((m) => m.id != match.id).toList();
     if (beforeMatch.isEmpty) return const [];
 
-    final currentTable = _buildLeagueTable(players: leaguePlayers, matches: upToMatch);
-    final previousTable = _buildLeagueTable(players: leaguePlayers, matches: beforeMatch);
-    _applyMovementAndChaseData(currentTable: currentTable, previousTable: previousTable);
+    final currentTable = _buildLeagueTable(
+      players: leaguePlayers,
+      matches: upToMatch,
+    );
+    final previousTable = _buildLeagueTable(
+      players: leaguePlayers,
+      matches: beforeMatch,
+    );
+    _applyMovementAndChaseData(
+      currentTable: currentTable,
+      previousTable: previousTable,
+    );
 
     final movers = currentTable.where((row) => row.movement != 0).toList()
       ..sort((a, b) => b.movement.abs().compareTo(a.movement.abs()));
@@ -979,8 +1095,10 @@ class FirestoreService {
         ActivityFeedItem(
           timestamp: match.playedAt.subtract(const Duration(seconds: 2)),
           icon: ActivityFeedIcon.rankUp,
-          title: '${topMover.playerName} moved to #${currentTable.indexOf(topMover) + 1}',
-          subtitle: 'Up ${topMover.movement} place${topMover.movement == 1 ? '' : 's'} in League $league',
+          title:
+              '${topMover.playerName} moved to #${currentTable.indexOf(topMover) + 1}',
+          subtitle:
+              'Up ${topMover.movement} place${topMover.movement == 1 ? '' : 's'} in League $league',
         ),
       ];
     }
@@ -989,8 +1107,10 @@ class FirestoreService {
       ActivityFeedItem(
         timestamp: match.playedAt.subtract(const Duration(seconds: 2)),
         icon: ActivityFeedIcon.rankDown,
-        title: '${topMover.playerName} dropped to #${currentTable.indexOf(topMover) + 1}',
-        subtitle: 'Down ${topMover.movement.abs()} place${topMover.movement.abs() == 1 ? '' : 's'} in League $league',
+        title:
+            '${topMover.playerName} dropped to #${currentTable.indexOf(topMover) + 1}',
+        subtitle:
+            'Down ${topMover.movement.abs()} place${topMover.movement.abs() == 1 ? '' : 's'} in League $league',
       ),
     ];
   }
@@ -1005,8 +1125,7 @@ class FirestoreService {
         (achievementId) => ActivityFeedItem(
           timestamp: DateTime.now(),
           icon: ActivityFeedIcon.achievement,
-          title:
-              '${_winnerNameForActivity(match)} earned badge',
+          title: '${_winnerNameForActivity(match)} earned badge',
           subtitle: _achievementLabel(achievementId),
           season: match.season,
         ),
@@ -1025,14 +1144,15 @@ class FirestoreService {
         .toList();
 
     final allMatchesSnapshot = await matches.get();
-    final allMatches = allMatchesSnapshot.docs
-        .map((doc) {
-          final data = Map<String, dynamic>.from(doc.data() as Map);
-          return MatchModel.fromMap(data, id: doc.id);
-        })
-        .where((m) => m.season == match.season)
-        .toList()
-      ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+    final allMatches =
+        allMatchesSnapshot.docs
+            .map((doc) {
+              final data = Map<String, dynamic>.from(doc.data() as Map);
+              return MatchModel.fromMap(data, id: doc.id);
+            })
+            .where((m) => m.season == match.season)
+            .toList()
+          ..sort((a, b) => b.playedAt.compareTo(a.playedAt));
 
     items.addAll(
       _buildMovementActivities(
@@ -1073,7 +1193,10 @@ class FirestoreService {
     return '';
   }
 
-  List<String> _activityAchievementsForMatch(MatchModel match, String winnerId) {
+  List<String> _activityAchievementsForMatch(
+    MatchModel match,
+    String winnerId,
+  ) {
     final sets = _parseSetWins(match);
     final winnerIsP1 = winnerId == match.player1Id;
     final winnerSets = winnerIsP1 ? sets.player1SetsWon : sets.player2SetsWon;
@@ -1118,6 +1241,10 @@ class FirestoreService {
   }
 
   String _buildActivityScore(MatchModel match) {
+    if (match.simpleMode && match.resultLabel.trim().isNotEmpty) {
+      return match.resultLabel;
+    }
+
     final scores = <String>[];
     for (final raw in [match.set1, match.set2, match.superTieBreak]) {
       if (raw.trim().isEmpty) continue;
@@ -1134,7 +1261,8 @@ class FirestoreService {
     final hasPreviousData = previousTable.any((r) => r.points > 0);
 
     final previousPositionById = <String, int>{
-      for (int i = 0; i < previousTable.length; i++) previousTable[i].playerId: i + 1,
+      for (int i = 0; i < previousTable.length; i++)
+        previousTable[i].playerId: i + 1,
     };
 
     for (int i = 0; i < currentTable.length; i++) {
@@ -1217,20 +1345,23 @@ class FirestoreService {
     final playerName = playerData['name']?.toString() ?? '';
 
     final matchSnapshot = await matches.get();
-    final playerMatches = matchSnapshot.docs
-        .map((doc) {
-          final data = Map<String, dynamic>.from(doc.data() as Map);
-          return MatchModel.fromMap(data, id: doc.id);
-        })
-        .where(
-          (m) => _matchInvolvesPlayer(
-            m,
-            playerId: playerId,
-            playerName: playerName,
-          ),
-        )
-        .toList()
-      ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
+    final playerMatches =
+        matchSnapshot.docs
+            .map((doc) {
+              final data = Map<String, dynamic>.from(doc.data() as Map);
+              return MatchModel.fromMap(data, id: doc.id);
+            })
+            .where(
+              (m) =>
+                  _matchInvolvesPlayer(
+                    m,
+                    playerId: playerId,
+                    playerName: playerName,
+                  ) &&
+                  !_isSimpleSeason(m.season),
+            )
+            .toList()
+          ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
 
     final Map<String, dynamic> updates = {};
     final currentAch = Map<String, dynamic>.from(
@@ -1240,11 +1371,8 @@ class FirestoreService {
 
     // first_win: grant once only
     final hasWin = playerMatches.any(
-      (m) => _didPlayerWinResolved(
-        m,
-        playerId: playerId,
-        playerName: playerName,
-      ),
+      (m) =>
+          _didPlayerWinResolved(m, playerId: playerId, playerName: playerName),
     );
     if (hasWin) {
       if ((currentAch['first_win'] as int? ?? 0) == 0) {
@@ -1256,12 +1384,11 @@ class FirestoreService {
     // win_streak_3: trailing win streak divisible by 3 → new group of 3 completed
     int trailingStreak = 0;
     for (final m in playerMatches.reversed) {
-      if (
-          _didPlayerWinResolved(
-            m,
-            playerId: playerId,
-            playerName: playerName,
-          )) {
+      if (_didPlayerWinResolved(
+        m,
+        playerId: playerId,
+        playerName: playerName,
+      )) {
         trailingStreak++;
       } else {
         break;
@@ -1285,11 +1412,15 @@ class FirestoreService {
     final playerSnapshot = await players.get();
     final matchSnapshot = await matches.get();
 
-    final allMatches = matchSnapshot.docs.map((doc) {
-      final data = Map<String, dynamic>.from(doc.data() as Map);
-      return MatchModel.fromMap(data, id: doc.id);
-    }).toList()
-      ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
+    final allMatches =
+        matchSnapshot.docs
+            .map((doc) {
+              final data = Map<String, dynamic>.from(doc.data() as Map);
+              return MatchModel.fromMap(data, id: doc.id);
+            })
+            .where((match) => !_isSimpleSeason(match.season))
+            .toList()
+          ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
 
     final batch = _db.batch();
 
@@ -1302,7 +1433,9 @@ class FirestoreService {
       final Map<String, int> earned = {};
 
       // first_win
-      final hasWin = playerMatches.any((m) => _resolveWinnerId(m, _parseSetWins(m)) == playerId);
+      final hasWin = playerMatches.any(
+        (m) => _resolveWinnerId(m, _parseSetWins(m)) == playerId,
+      );
       if (hasWin) earned['first_win'] = 1;
 
       // win_streak_3: non-overlapping groups of 3 consecutive wins
@@ -1325,8 +1458,12 @@ class FirestoreService {
         if (winnerId != playerId) continue;
 
         final winnerIsP1 = match.player1Id == playerId;
-        final winnerSets = winnerIsP1 ? sets.player1SetsWon : sets.player2SetsWon;
-        final loserSets = winnerIsP1 ? sets.player2SetsWon : sets.player1SetsWon;
+        final winnerSets = winnerIsP1
+            ? sets.player1SetsWon
+            : sets.player2SetsWon;
+        final loserSets = winnerIsP1
+            ? sets.player2SetsWon
+            : sets.player1SetsWon;
 
         if (winnerSets == 2 && loserSets == 0) {
           earned['perfect_match'] = (earned['perfect_match'] ?? 0) + 1;
@@ -1335,19 +1472,23 @@ class FirestoreService {
         final stb = _parseScore(match.superTieBreak);
         if (stb != null) {
           final winnerWonStb = winnerIsP1 ? stb[0] > stb[1] : stb[1] > stb[0];
-          if (winnerWonStb) earned['tiebreak_hero'] = (earned['tiebreak_hero'] ?? 0) + 1;
+          if (winnerWonStb) {
+            earned['tiebreak_hero'] = (earned['tiebreak_hero'] ?? 0) + 1;
+          }
         }
 
         final set1 = _parseScore(match.set1);
         if (set1 != null) {
-          final winnerLostSet1 = winnerIsP1 ? set1[1] > set1[0] : set1[0] > set1[1];
-          if (winnerLostSet1) earned['comeback_king'] = (earned['comeback_king'] ?? 0) + 1;
+          final winnerLostSet1 = winnerIsP1
+              ? set1[1] > set1[0]
+              : set1[0] > set1[1];
+          if (winnerLostSet1) {
+            earned['comeback_king'] = (earned['comeback_king'] ?? 0) + 1;
+          }
         }
       }
 
-      batch.update(players.doc(playerId), {
-        'achievements': earned,
-      });
+      batch.update(players.doc(playerId), {'achievements': earned});
     }
 
     await batch.commit();
@@ -1372,22 +1513,28 @@ class FirestoreService {
     // 2. Load all data
     final playersSnapshot = await players.get();
     final allPlayers = playersSnapshot.docs
-        .map((doc) => Player.fromMap(
-              Map<String, dynamic>.from(doc.data() as Map),
-              id: doc.id,
-            ))
+        .map(
+          (doc) => Player.fromMap(
+            Map<String, dynamic>.from(doc.data() as Map),
+            id: doc.id,
+          ),
+        )
         .where((p) => !p.archived)
         .toList();
 
     final matchesSnapshot = await matches.get();
-    final allMatches = matchesSnapshot.docs
-        .map((doc) => MatchModel.fromMap(
-              Map<String, dynamic>.from(doc.data() as Map),
-              id: doc.id,
-            ))
-        .where((m) => _resolveWinnerId(m, _parseSetWins(m)).isNotEmpty)
-        .toList()
-      ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
+    final allMatches =
+        matchesSnapshot.docs
+            .map(
+              (doc) => MatchModel.fromMap(
+                Map<String, dynamic>.from(doc.data() as Map),
+                id: doc.id,
+              ),
+            )
+            .where((m) => !_isSimpleSeason(m.season))
+            .where((m) => _resolveWinnerId(m, _parseSetWins(m)).isNotEmpty)
+            .toList()
+          ..sort((a, b) => a.playedAt.compareTo(b.playedAt)); // oldest first
 
     // 3. Build activity items for every match
     final items = <ActivityFeedItem>[];
@@ -1397,23 +1544,30 @@ class FirestoreService {
 
       // Match result
       final matchActivity = _buildMatchActivity(match);
-      items.add(ActivityFeedItem(
-        timestamp: matchActivity.timestamp,
-        icon: matchActivity.icon,
-        title: matchActivity.title,
-        subtitle: matchActivity.subtitle,
-        season: match.season,
-      ));
+      items.add(
+        ActivityFeedItem(
+          timestamp: matchActivity.timestamp,
+          icon: matchActivity.icon,
+          title: matchActivity.title,
+          subtitle: matchActivity.subtitle,
+          season: match.season,
+        ),
+      );
 
       // Badge activities
-      for (final achievementId in _activityAchievementsForMatch(match, winnerId)) {
-        items.add(ActivityFeedItem(
-          timestamp: match.playedAt.subtract(const Duration(seconds: 1)),
-          icon: ActivityFeedIcon.achievement,
-          title: '${_winnerNameForActivity(match)} earned badge',
-          subtitle: _achievementLabel(achievementId),
-          season: match.season,
-        ));
+      for (final achievementId in _activityAchievementsForMatch(
+        match,
+        winnerId,
+      )) {
+        items.add(
+          ActivityFeedItem(
+            timestamp: match.playedAt.subtract(const Duration(seconds: 1)),
+            icon: ActivityFeedIcon.achievement,
+            title: '${_winnerNameForActivity(match)} earned badge',
+            subtitle: _achievementLabel(achievementId),
+            season: match.season,
+          ),
+        );
       }
 
       // Rank movement activities
@@ -1422,13 +1576,15 @@ class FirestoreService {
         allPlayers: allPlayers,
         allMatches: allMatches,
       )) {
-        items.add(ActivityFeedItem(
-          timestamp: item.timestamp,
-          icon: item.icon,
-          title: item.title,
-          subtitle: item.subtitle,
-          season: match.season,
-        ));
+        items.add(
+          ActivityFeedItem(
+            timestamp: item.timestamp,
+            icon: item.icon,
+            title: item.title,
+            subtitle: item.subtitle,
+            season: match.season,
+          ),
+        );
       }
     }
 
@@ -1446,12 +1602,24 @@ class FirestoreService {
   List<LeagueTableRow> _buildLeagueTable({
     required List<Player> players,
     required List<MatchModel> matches,
+    Map<String, _SeasonTableSeed> seasonSeeds = const {},
   }) {
     final Map<String, LeagueTableRow> table = {
       for (final p in players)
-        p.id ?? '':
-            LeagueTableRow(playerId: p.id ?? '', playerName: p.name, league: p.league)
+        p.id ?? '': LeagueTableRow(
+          playerId: p.id ?? '',
+          playerName: p.name,
+          league: p.league,
+        ),
     };
+
+    for (final entry in seasonSeeds.entries) {
+      final row = table[entry.key];
+      if (row == null) continue;
+      row.played = entry.value.played;
+      row.points = entry.value.points;
+      row.seedRank = entry.value.rank;
+    }
 
     for (final match in matches) {
       final p1 = table[match.player1Id];
@@ -1562,6 +1730,10 @@ class FirestoreService {
         final byGameDiff = b.gameDifference.compareTo(a.gameDifference);
         if (byGameDiff != 0) return byGameDiff;
 
+        if (a.seedRank > 0 && b.seedRank > 0 && a.seedRank != b.seedRank) {
+          return a.seedRank.compareTo(b.seedRank);
+        }
+
         return a.playerName.compareTo(b.playerName);
       });
 
@@ -1573,10 +1745,7 @@ class _SetWins {
   final int player1SetsWon;
   final int player2SetsWon;
 
-  _SetWins({
-    required this.player1SetsWon,
-    required this.player2SetsWon,
-  });
+  _SetWins({required this.player1SetsWon, required this.player2SetsWon});
 }
 
 class LeagueTableRow {
@@ -1594,6 +1763,7 @@ class LeagueTableRow {
   int gamesLost = 0;
   int movement = 0;
   int pointsToNext = 0;
+  int seedRank = 0;
 
   LeagueTableRow({
     required this.playerId,
@@ -1658,4 +1828,20 @@ class ActivityFeedItem {
       season: map['season']?.toString(),
     );
   }
+}
+
+class _SeasonTableSeed {
+  final String playerId;
+  final String playerName;
+  final int played;
+  final int points;
+  final int rank;
+
+  const _SeasonTableSeed({
+    required this.playerId,
+    required this.playerName,
+    required this.played,
+    required this.points,
+    required this.rank,
+  });
 }

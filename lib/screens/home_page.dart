@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../utils/browser_reload.dart';
-import 'archived_players_page.dart';
 import 'league_management_page.dart';
 import 'league_table_page.dart';
 import 'login_page.dart';
 import 'matches_page.dart';
 import 'players_page.dart';
+import 'playoff_bracket_page.dart';
 import 'promotions_page.dart';
 import 'schedule_page.dart';
 import 'viewer_matches_page.dart';
@@ -36,7 +36,9 @@ class HomePage extends StatelessWidget {
 }
 
 class AdminHomePage extends StatefulWidget {
-  const AdminHomePage({super.key});
+  const AdminHomePage({super.key, this.pages});
+
+  final List<Widget>? pages;
 
   @override
   State<AdminHomePage> createState() => _AdminHomePageState();
@@ -45,16 +47,19 @@ class AdminHomePage extends StatefulWidget {
 class _AdminHomePageState extends State<AdminHomePage> {
   int selectedIndex = 0;
 
-  final List<Widget> pages = const [
-    AdminWelcomePage(),
-    PlayersPage(),
-    ArchivedPlayersPage(),
-    MatchesPage(),
-    LeagueTablePage(),
-    SchedulePage(),
-    LeagueManagementPage(),
-    PromotionsPage(),
-  ];
+  List<Widget> get pages =>
+      widget.pages ??
+      const [
+        AdminWelcomePage(),
+        PlayersPage(),
+        MatchesPage(),
+        LeagueTablePage(),
+        ActivityFeedPage(),
+        PlayoffBracketPage(),
+        SchedulePage(),
+        LeagueManagementPage(),
+        PromotionsPage(),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -79,11 +84,6 @@ class _AdminHomePageState extends State<AdminHomePage> {
             label: 'Players',
           ),
           NavigationDestination(
-            icon: Icon(Icons.archive_outlined),
-            selectedIcon: Icon(Icons.archive),
-            label: 'Arhiva',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.sports_tennis_outlined),
             selectedIcon: Icon(Icons.sports_tennis),
             label: 'Matches',
@@ -92,6 +92,16 @@ class _AdminHomePageState extends State<AdminHomePage> {
             icon: Icon(Icons.leaderboard_outlined),
             selectedIcon: Icon(Icons.leaderboard),
             label: 'Table',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.dynamic_feed_outlined),
+            selectedIcon: Icon(Icons.dynamic_feed),
+            label: 'Feed',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events),
+            label: 'Playoff',
           ),
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
@@ -115,7 +125,9 @@ class _AdminHomePageState extends State<AdminHomePage> {
 }
 
 class ViewerHomePage extends StatefulWidget {
-  const ViewerHomePage({super.key});
+  const ViewerHomePage({super.key, this.pages});
+
+  final List<Widget>? pages;
 
   @override
   State<ViewerHomePage> createState() => _ViewerHomePageState();
@@ -124,13 +136,15 @@ class ViewerHomePage extends StatefulWidget {
 class _ViewerHomePageState extends State<ViewerHomePage> {
   int selectedIndex = 0;
 
-  final List<Widget> pages = const [
-    ViewerWelcomePage(),
-    ViewerPlayersPage(),
-    ViewerMatchesPage(),
-    LeagueTablePage(canResetTrend: false),
-    _ActivityFeedPage(),
-  ];
+  List<Widget> get pages =>
+      widget.pages ??
+      const [
+        ViewerWelcomePage(),
+        ViewerPlayersPage(),
+        ViewerMatchesPage(),
+        LeagueTablePage(),
+        ActivityFeedPage(),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -181,6 +195,7 @@ class AdminWelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final email = FirebaseAuth.instance.currentUser?.email ?? '';
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -200,8 +215,8 @@ class AdminWelcomePage extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.18),
+              scheme.surface,
+              scheme.primaryContainer.withValues(alpha: 0.18),
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -218,7 +233,10 @@ class AdminWelcomePage extends StatelessWidget {
                   children: [
                     Text(
                       'Admin: $email',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     const Text('Zadnja događanja u ligi na jednom mjestu.'),
@@ -226,8 +244,6 @@ class AdminWelcomePage extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            const _ActivityFeedCard(),
           ],
         ),
       ),
@@ -247,10 +263,7 @@ class ViewerWelcomePage extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [
-            colorScheme.primary,
-            colorScheme.secondary,
-          ],
+          colors: [colorScheme.primary, colorScheme.secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -282,17 +295,17 @@ class ViewerWelcomePage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const SizedBox.shrink(),
+        title: const Text('TK JOGI'),
         centerTitle: true,
         actions: [
           IconButton(
-            tooltip: 'Refresh app',
+            tooltip: 'Refresh',
             onPressed: () async {
               final didReload = await tryReloadApp();
               if (!didReload && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Osvježavanje nije podržano na ovoj platformi.'),
+                    content: Text('Refresh je dostupan samo na webu.'),
                   ),
                 );
               }
@@ -304,9 +317,7 @@ class ViewerWelcomePage extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const LoginPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const LoginPage()),
               );
             },
             icon: const Icon(Icons.admin_panel_settings),
@@ -333,7 +344,10 @@ class ViewerWelcomePage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 28,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -342,7 +356,7 @@ class ViewerWelcomePage extends StatelessWidget {
                     Text(
                       'Dobrodošli u aplikaciju',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 14,
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -401,22 +415,23 @@ class ViewerWelcomePage extends StatelessWidget {
   }
 }
 
-class _ActivityFeedPage extends StatelessWidget {
-  const _ActivityFeedPage();
+class ActivityFeedPage extends StatelessWidget {
+  const ActivityFeedPage({super.key, this.activityFeedStream});
+
+  final Stream<List<ActivityFeedItem>>? activityFeedStream;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Activity Feed'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('News Feed'), centerTitle: true),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.18),
+              scheme.surface,
+              scheme.primaryContainer.withValues(alpha: 0.18),
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -424,9 +439,7 @@ class _ActivityFeedPage extends StatelessWidget {
         ),
         child: ListView(
           padding: const EdgeInsets.all(20),
-          children: const [
-            _ActivityFeedCard(),
-          ],
+          children: [_ActivityFeedCard(activityFeedStream: activityFeedStream)],
         ),
       ),
     );
@@ -434,12 +447,14 @@ class _ActivityFeedPage extends StatelessWidget {
 }
 
 class _ActivityFeedCard extends StatelessWidget {
-  const _ActivityFeedCard();
+  const _ActivityFeedCard({this.activityFeedStream});
+
+  final Stream<List<ActivityFeedItem>>? activityFeedStream;
 
   @override
   Widget build(BuildContext context) {
-    final firestoreService = FirestoreService();
     final scheme = Theme.of(context).colorScheme;
+    final stream = activityFeedStream ?? FirestoreService().getActivityFeed();
 
     return Card(
       child: Padding(
@@ -454,21 +469,19 @@ class _ActivityFeedCard extends StatelessWidget {
                 Text(
                   'Activity Feed',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 6),
             Text(
               'Najnoviji mečevi, badgevi i pomaci na tablici.',
-              style: TextStyle(
-                color: scheme.onSurface.withValues(alpha: 0.7),
-              ),
+              style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 14),
             StreamBuilder<List<ActivityFeedItem>>(
-              stream: firestoreService.getActivityFeed(),
+              stream: stream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Padding(
@@ -491,18 +504,20 @@ class _ActivityFeedCard extends StatelessWidget {
 
                 return Column(
                   children: items.map((item) {
-                    final (icon, color) = _feedVisuals(item.icon, scheme);
+                    final visuals = _feedVisuals(item.icon, scheme);
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
-                        backgroundColor: color.withValues(alpha: 0.14),
-                        child: Icon(icon, color: color, size: 20),
+                        backgroundColor: visuals.$2.withValues(alpha: 0.14),
+                        child: Icon(visuals.$1, color: visuals.$2, size: 20),
                       ),
                       title: Text(
                         item.title,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      subtitle: Text('${item.subtitle} • ${_formatFeedDate(item.timestamp)}'),
+                      subtitle: Text(
+                        '${item.subtitle} • ${_formatFeedDate(item.timestamp)}',
+                      ),
                     );
                   }).toList(),
                 );
