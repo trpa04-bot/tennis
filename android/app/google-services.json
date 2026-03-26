@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "397620043905",
+    "project_id": "tennis-club-app-fb311",
+    "storage_bucket": "tennis-club-app-fb311.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:397620043905:android:4236a25f8f0ea64dfdad80",
+        "android_client_info": {
+          "package_name": "com.example.tennis_club_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDupjTNNPToXJOQwq--SoPkYMPZOPOy_Hw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

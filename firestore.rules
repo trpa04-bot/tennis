@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isNonAnonymous() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isFallbackAdmin() {
+      return isNonAnonymous()
+        && request.auth.token.email == 'trpa04@gmail.com';
+    }
+
+    function isConfiguredAdmin() {
+      return isNonAnonymous()
+        && exists(/databases/$(database)/documents/config/admins)
+        && request.auth.token.email in
+             get(/databases/$(database)/documents/config/admins).data.emails;
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isFallbackAdmin() || isConfiguredAdmin();
+    }
+
+    match /config/admins {
+      allow read: if isAdmin();
+      allow write: if isFallbackAdmin()
+        || (isConfiguredAdmin() && isAdmin());
+    }
+
+    match /{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}
