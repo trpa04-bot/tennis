@@ -563,24 +563,12 @@ class _MatchesPageState extends State<MatchesPage> {
                       const SizedBox(width: 10),
                       DropdownButton<String>(
                         value: selectedLeague,
-                        items: const [
-                          DropdownMenuItem(
-                            value: '1',
-                            child: Text('1.(ROLAND GARROS)'),
-                          ),
-                          DropdownMenuItem(
-                            value: '2',
-                            child: Text('2.(AUSTRALIAN OPEN)'),
-                          ),
-                          DropdownMenuItem(
-                            value: '3',
-                            child: Text('3.(WIMBLEDON)'),
-                          ),
-                          DropdownMenuItem(
-                            value: '4',
-                            child: Text('4.(US OPEN)'),
-                          ),
-                        ],
+                        items: ['1', '2', '3', '4'].map((league) {
+                          return DropdownMenuItem(
+                            value: league,
+                            child: Text(_leagueLabel(league)),
+                          );
+                        }).toList(),
                         onChanged: (value) {
                           if (value == null) return;
                           setState(() {

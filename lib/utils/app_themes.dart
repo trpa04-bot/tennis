@@ -255,8 +255,8 @@ extension AppThemeExtension on AppTheme {
       canvasColor: bg,
       cardColor: surface,
       dividerColor: border,
-      splashColor: accent.withOpacity(0.14),
-      highlightColor: Colors.white.withOpacity(0.04),
+      splashColor: accent.withValues(alpha: 0.14),
+      highlightColor: Colors.white.withValues(alpha: 0.04),
       appBarTheme: const AppBarTheme(
         backgroundColor: bg,
         foregroundColor: textPrimary,
@@ -348,7 +348,7 @@ extension AppThemeExtension on AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: surfaceAlt,
-        selectedColor: accent.withOpacity(0.18),
+        selectedColor: accent.withValues(alpha: 0.18),
         disabledColor: Colors.white10,
         side: const BorderSide(color: border),
         labelStyle: const TextStyle(color: textPrimary),
@@ -378,7 +378,7 @@ extension AppThemeExtension on AppTheme {
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return accent.withOpacity(0.35);
+            return accent.withValues(alpha: 0.35);
           }
           return Colors.white24;
         }),

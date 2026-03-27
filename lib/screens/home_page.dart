@@ -109,9 +109,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
       const _AdminNavItem('Settings', Icons.settings_outlined, Icons.settings),
     ];
 
-    // Izračunaj broj stupaca tako da uvijek budu 2 reda
-    int columns = (navItems.length / 2).ceil();
-    double iconBarHeight = 112; // 2 reda po 56px + padding
+    double iconBarHeight = 80;
 
     return Scaffold(
       body: pages[selectedIndex],
@@ -120,15 +118,10 @@ class _AdminHomePageState extends State<AdminHomePage> {
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
         child: SizedBox(
           height: iconBarHeight,
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisSpacing: 0,
-              crossAxisSpacing: 0,
-              childAspectRatio: 1.3,
-            ),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
             itemCount: navItems.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final item = navItems[index];
               final isSelected = selectedIndex == index;
@@ -198,7 +191,7 @@ class _ViewerHomePageState extends State<ViewerHomePage> {
         ViewerMatchesPage(),
         LeagueTablePage(),
         ActivityFeedPage(),
-        PlayoffBracketPage(),
+        // PlayoffBracketPage(), // SAKRIVENO ZA VIEWER MOD
         SchedulePage(),
         LeagueManagementPage(),
         PromotionsPage(),
@@ -226,11 +219,11 @@ class _ViewerHomePageState extends State<ViewerHomePage> {
         Icons.dynamic_feed_outlined,
         Icons.dynamic_feed,
       ),
-      const _AdminNavItem(
-        'Playoff',
-        Icons.emoji_events_outlined,
-        Icons.emoji_events,
-      ),
+      // const _AdminNavItem(
+      //   'Playoff',
+      //   Icons.emoji_events_outlined,
+      //   Icons.emoji_events,
+      // ), // SAKRIVENO ZA VIEWER MOD
       const _AdminNavItem(
         'Schedule',
         Icons.calendar_month_outlined,
