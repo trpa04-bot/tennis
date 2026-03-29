@@ -13,9 +13,11 @@ import 'playoff_bracket_page.dart';
 import 'promotions_page.dart';
 import 'schedule_page.dart';
 import 'match_sheet_pdf_page.dart';
+
 import 'settings_page.dart';
 import 'viewer_matches_page.dart';
 import 'viewer_players_page.dart';
+import 'admin_image_upload_widget.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -52,11 +54,11 @@ class _AdminHomePageState extends State<AdminHomePage> {
   List<Widget> get pages =>
       widget.pages ??
       [
-        AdminWelcomePage(),
+        const AdminWelcomePage(),
         PlayersPage(),
         MatchesPage(),
         LeagueTablePage(),
-        ActivityFeedPage(),
+        const ActivityFeedPage(),
         PlayoffBracketPage(),
         SchedulePage(),
         LeagueManagementPage(),
@@ -109,7 +111,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
       const _AdminNavItem('Settings', Icons.settings_outlined, Icons.settings),
     ];
 
-    double iconBarHeight = 80;
+    const double iconBarHeight = 80;
 
     return Scaffold(
       body: pages[selectedIndex],
@@ -168,6 +170,7 @@ class _AdminNavItem {
   final String label;
   final IconData icon;
   final IconData selectedIcon;
+
   const _AdminNavItem(this.label, this.icon, this.selectedIcon);
 }
 
@@ -186,12 +189,11 @@ class _ViewerHomePageState extends State<ViewerHomePage> {
   List<Widget> get pages =>
       widget.pages ??
       [
-        ViewerWelcomePage(),
+        const ViewerWelcomePage(),
         ViewerPlayersPage(),
         ViewerMatchesPage(),
         LeagueTablePage(),
-        ActivityFeedPage(),
-        // PlayoffBracketPage(), // SAKRIVENO ZA VIEWER MOD
+        const ActivityFeedPage(),
         SchedulePage(),
         LeagueManagementPage(),
         PromotionsPage(),
@@ -219,84 +221,65 @@ class _ViewerHomePageState extends State<ViewerHomePage> {
         Icons.dynamic_feed_outlined,
         Icons.dynamic_feed,
       ),
-      // const _AdminNavItem(
-      //   'Playoff',
-      //   Icons.emoji_events_outlined,
-      //   Icons.emoji_events,
-      // ), // SAKRIVENO ZA VIEWER MOD
-      const _AdminNavItem(
-        'Schedule',
-        Icons.calendar_month_outlined,
-        Icons.calendar_month,
-      ),
-      const _AdminNavItem(
-        'Manage',
-        Icons.swap_horiz_outlined,
-        Icons.swap_horiz,
-      ),
-      const _AdminNavItem(
-        'Promote',
-        Icons.trending_up_outlined,
-        Icons.trending_up,
-      ),
-      const _AdminNavItem('Print', Icons.print_outlined, Icons.print),
-      const _AdminNavItem('Settings', Icons.settings_outlined, Icons.settings),
     ];
-
-    int columns = (navItems.length / 2).ceil();
-    double iconBarHeight = 112;
 
     return Scaffold(
       body: pages[selectedIndex],
-      bottomNavigationBar: Container(
-        color: Theme.of(context).colorScheme.surface,
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-        child: SizedBox(
-          height: iconBarHeight,
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisSpacing: 0,
-              crossAxisSpacing: 0,
-              childAspectRatio: 1.3,
-            ),
-            itemCount: navItems.length,
-            itemBuilder: (context, index) {
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          height: 74,
+          color: Theme.of(context).colorScheme.surface,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            children: List.generate(navItems.length, (index) {
               final item = navItems[index];
               final isSelected = selectedIndex == index;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedIndex = index;
-                  });
-                },
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isSelected ? item.selectedIcon : item.icon,
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).iconTheme.color,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: 12,
+
+              return Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    setState(() {
+                      selectedIndex = index;
+                    });
+                  },
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isSelected ? item.selectedIcon : item.icon,
+                        size: 24,
                         color: isSelected
                             ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).textTheme.bodyMedium?.color,
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                            : Theme.of(context).iconTheme.color,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      MediaQuery(
+                        data: MediaQuery.of(
+                          context,
+                        ).copyWith(textScaler: TextScaler.noScaling),
+                        child: Text(
+                          item.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
-            },
+            }),
           ),
         ),
       ),
@@ -362,6 +345,13 @@ class AdminWelcomePage extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text('Zadnja događanja u ligi na jednom mjestu.'),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Upload slike rezultata meča:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    AdminImageUploadWidget(),
                   ],
                 ),
               ),
@@ -492,7 +482,7 @@ class ViewerWelcomePage extends StatelessWidget {
                     Text(
                       'TK JOGI',
                       style: TextStyle(
-                        fontSize: 24, // smanjeno za ~30%
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
                         color: colorScheme.onSurface,
                       ),

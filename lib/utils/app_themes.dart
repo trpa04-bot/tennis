@@ -138,6 +138,8 @@ extension AppThemeExtension on AppTheme {
         bodyMedium: TextStyle(color: Colors.black87),
         titleLarge: TextStyle(color: Colors.black),
       ),
+      iconTheme: IconThemeData(color: Colors.black),
+      primaryIconTheme: IconThemeData(color: Colors.black),
       inputDecorationTheme: InputDecorationTheme(
         fillColor: Colors.white,
         filled: true,
