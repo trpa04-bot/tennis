@@ -472,7 +472,7 @@ class FirestoreService {
                     id: doc.id,
                   ),
                 )
-                .where((player) => !player.archived)
+                .where((player) => !player.archived && !player.frozen)
                 .toList();
 
             yield* matches.snapshots().map((matchSnapshot) {
@@ -1368,7 +1368,7 @@ class FirestoreService {
             id: doc.id,
           ),
         )
-        .where((player) => !player.archived)
+        .where((player) => !player.archived && !player.frozen)
         .toList();
 
     final allMatchesSnapshot = await matches.get();
@@ -1751,7 +1751,7 @@ class FirestoreService {
             id: doc.id,
           ),
         )
-        .where((p) => !p.archived)
+        .where((p) => !p.archived && !p.frozen)
         .toList();
 
     final matchesSnapshot = await matches.get();
