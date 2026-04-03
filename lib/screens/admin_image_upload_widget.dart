@@ -85,12 +85,15 @@ class _AdminImageUploadWidgetState extends State<AdminImageUploadWidget> {
               .replaceAll('/', '.');
           date = DateTime.tryParse(d.split('.').reversed.join('-')) ?? date;
         }
-        if (line.toLowerCase().contains('liga'))
+        if (line.toLowerCase().contains('liga')) {
           league = line.split(':').last.trim();
-        if (line.toLowerCase().contains('sezona'))
+        }
+        if (line.toLowerCase().contains('sezona')) {
           season = line.split(':').last.trim();
-        if (line.toLowerCase().contains('pobjednik'))
+        }
+        if (line.toLowerCase().contains('pobjednik')) {
           winner = line.split(':').last.trim();
+        }
         if (RegExp(r'\d+:\d+').hasMatch(line)) result = line;
         // Try to extract player names from lines with a dash
         if (line.contains('-')) {

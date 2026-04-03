@@ -163,19 +163,24 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
                         const SizedBox(height: 10),
                         SizedBox(
                           height: 40,
-                          child: ListView(
+                          child: SingleChildScrollView(
                             controller: _leagueTabsController,
                             primary: false,
                             scrollDirection: Axis.horizontal,
-                            children: [
-                              _leagueChip('1'),
-                              const SizedBox(width: 8),
-                              _leagueChip('2'),
-                              const SizedBox(width: 8),
-                              _leagueChip('3'),
-                              const SizedBox(width: 8),
-                              _leagueChip('4'),
-                            ],
+                            child: Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _leagueChip('1'),
+                                  const SizedBox(width: 8),
+                                  _leagueChip('2'),
+                                  const SizedBox(width: 8),
+                                  _leagueChip('3'),
+                                  const SizedBox(width: 8),
+                                  _leagueChip('4'),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ],
