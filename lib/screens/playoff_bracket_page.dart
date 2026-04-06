@@ -760,21 +760,23 @@ class _PlayoffBracketPageState extends State<PlayoffBracketPage> {
           const SizedBox(width: 14),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  '$_season Playoff',
+                  '_season Playoff',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.4,
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Top 16 elimination bracket • ATP style skeleton',
+                  'Top 16 elimination bracket 9 ATP style skeleton',
                   style: TextStyle(color: Color(0xFFD7E5FF), fontSize: 13.5),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
