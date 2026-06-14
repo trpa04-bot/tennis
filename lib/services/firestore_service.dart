@@ -624,6 +624,175 @@ class FirestoreService {
     });
   }
 
+  // LEAGUE TABLE CACHE – fetch all raw data in one parallel round-trip,
+  // then build tables for any league/season combination synchronously.
+
+  Future<TableRawCache> fetchTableRawCache() async {
+    final results = await Future.wait([
+      _db.collection('players').get(),
+      _db.collection('matches').get(),
+      _db.collection('config').doc('trend').get(),
+      _db.collection('season_table_seeds').get(),
+    ]);
+
+    final playerSnapshot = results[0] as QuerySnapshot;
+    final matchSnapshot = results[1] as QuerySnapshot;
+    final configDoc = results[2] as DocumentSnapshot;
+    final seedSnapshot = results[3] as QuerySnapshot;
+
+    final allPlayers = playerSnapshot.docs
+        .map(
+          (doc) => Player.fromMap(
+            Map<String, dynamic>.from(doc.data() as Map),
+            id: doc.id,
+          ),
+        )
+        .toList();
+
+    final allMatches = matchSnapshot.docs
+        .map(
+          (doc) => MatchModel.fromMap(
+            Map<String, dynamic>.from(doc.data() as Map),
+            id: doc.id,
+          ),
+        )
+        .toList();
+
+    final resetAtRaw = (configDoc.data() as Map<String, dynamic>?)?['resetAt'];
+    final trendResetAt = resetAtRaw is Timestamp ? resetAtRaw.toDate() : null;
+
+    final allSeedDocs = seedSnapshot.docs
+        .map((doc) => Map<String, dynamic>.from(doc.data() as Map))
+        .toList();
+
+    return TableRawCache(
+      allPlayers: allPlayers,
+      allMatches: allMatches,
+      trendResetAt: trendResetAt,
+      allSeedDocs: allSeedDocs,
+    );
+  }
+
+  /// Build a league table from already-fetched raw data – no Firestore calls.
+  List<LeagueTableRow> buildLeagueTableFromCache({
+    required TableRawCache cache,
+    required String league,
+    required String? season,
+  }) {
+    final normalizedLeague = _normalizeLeague(league);
+
+    final playersInLeague = cache.allPlayers
+        .where(
+          (p) =>
+              _normalizeLeague(p.league) == normalizedLeague &&
+              !p.frozen &&
+              !p.archived,
+        )
+        .toList();
+
+    final resolvedPlayers = _mergePlayersWithLeagueHistory(
+      league: league,
+      currentPlayers: playersInLeague,
+      allMatches: cache.allMatches,
+    );
+
+    final filteredMatches = cache.allMatches.where((match) {
+      final belongs = _matchBelongsToLeague(
+        league: league,
+        match: match,
+        playersInLeague: resolvedPlayers,
+      );
+      if (!belongs) return false;
+      if (season != null && season.isNotEmpty) return match.season == season;
+      return true;
+    }).toList()..sort((a, b) => b.playedAt.compareTo(a.playedAt));
+
+    final seasonSeeds = _buildSeedsFromCachedDocs(
+      cache.allSeedDocs,
+      league: league,
+      season: season,
+      playersInLeague: resolvedPlayers,
+    );
+
+    List<MatchModel> previousMatches;
+    if (filteredMatches.length >= 2) {
+      final latestDate = filteredMatches.first.playedAt;
+      previousMatches = filteredMatches
+          .where((m) => m.playedAt.isBefore(latestDate))
+          .where(
+            (m) =>
+                cache.trendResetAt == null ||
+                m.playedAt.isAfter(cache.trendResetAt!),
+          )
+          .toList();
+      if (previousMatches.isEmpty && cache.trendResetAt == null) {
+        previousMatches = filteredMatches.sublist(1);
+      }
+    } else {
+      previousMatches = [];
+    }
+
+    final currentTable = _buildLeagueTable(
+      players: resolvedPlayers,
+      matches: filteredMatches,
+      seasonSeeds: seasonSeeds,
+    );
+    final previousTable = _buildLeagueTable(
+      players: resolvedPlayers,
+      matches: previousMatches,
+      seasonSeeds: seasonSeeds,
+    );
+    _applyMovementAndChaseData(
+      currentTable: currentTable,
+      previousTable: previousTable,
+    );
+    return currentTable;
+  }
+
+  Map<String, _SeasonTableSeed> _buildSeedsFromCachedDocs(
+    List<Map<String, dynamic>> seedDocs, {
+    required String league,
+    required String? season,
+    required List<Player> playersInLeague,
+  }) {
+    if (season == null || season.isEmpty) return const {};
+    final normalizedLeague = _normalizeLeague(league);
+
+    final byId = <String, _SeasonTableSeed>{};
+    final byNormalizedName = <String, _SeasonTableSeed>{};
+
+    for (final data in seedDocs) {
+      if (data['season']?.toString() != season) continue;
+      if (_normalizeLeague(data['league']?.toString() ?? '') !=
+          normalizedLeague)
+        continue;
+
+      final seed = _SeasonTableSeed(
+        playerId: data['playerId']?.toString() ?? '',
+        playerName: data['playerName']?.toString() ?? '',
+        played: int.tryParse(data['played']?.toString() ?? '0') ?? 0,
+        points: int.tryParse(data['points']?.toString() ?? '0') ?? 0,
+        rank: int.tryParse(data['rank']?.toString() ?? '0') ?? 0,
+      );
+      if (seed.playerId.isNotEmpty) byId[seed.playerId] = seed;
+      if (seed.playerName.trim().isNotEmpty) {
+        byNormalizedName[_normalizePlayerName(seed.playerName)] = seed;
+      }
+    }
+
+    final resolved = <String, _SeasonTableSeed>{};
+    for (final player in playersInLeague) {
+      final id = player.id ?? '';
+      if (id.isNotEmpty && byId.containsKey(id)) {
+        resolved[id] = byId[id]!;
+        continue;
+      }
+      final byName = byNormalizedName[_normalizePlayerName(player.name)];
+      if (byName != null && id.isNotEmpty) resolved[id] = byName;
+    }
+    return resolved;
+  }
+
   // LEAGUE TABLE ONCE (za promotions)
 
   Future<List<LeagueTableRow>> getLeagueTableOnce({
@@ -2086,6 +2255,22 @@ class _SetWins {
   final int player2SetsWon;
 
   _SetWins({required this.player1SetsWon, required this.player2SetsWon});
+}
+
+/// All raw Firestore data needed to build league tables for any league/season
+/// without making further network requests.
+class TableRawCache {
+  final List<Player> allPlayers;
+  final List<MatchModel> allMatches;
+  final DateTime? trendResetAt;
+  final List<Map<String, dynamic>> allSeedDocs;
+
+  const TableRawCache({
+    required this.allPlayers,
+    required this.allMatches,
+    required this.trendResetAt,
+    required this.allSeedDocs,
+  });
 }
 
 class LeagueTableRow {

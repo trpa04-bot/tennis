@@ -18,9 +18,15 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
 
   String selectedLeague = '1';
   String selectedSeason = 'Winter 2026';
-  Future<List<LeagueTableRow>>? _tableFuture;
-  // Each reload gets a unique key so FutureBuilder fully discards the old state.
-  Object _futureKey = Object();
+
+  /// All raw Firestore data, loaded once per page open (or manual refresh).
+  Future<TableRawCache>? _cacheFuture;
+
+  /// The currently displayed table rows, computed synchronously from the cache.
+  List<LeagueTableRow>? _table;
+
+  /// Reference to the loaded cache so league/season switches never refetch.
+  TableRawCache? _cache;
 
   final List<String> seasons = const ['Winter 2026', 'Summer 2026'];
 
@@ -29,19 +35,7 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
   @override
   void initState() {
     super.initState();
-    _reloadTable();
-  }
-
-  void _reloadTable() {
-    _futureKey = Object();
-    _tableFuture = firestoreService
-        .getLeagueTableOnce(league: selectedLeague, season: selectedSeason)
-        .timeout(
-          const Duration(seconds: 30),
-          onTimeout: () {
-            throw TimeoutException('Učitavanje tablice je isteklo (>30s).');
-          },
-        );
+    _loadCache();
   }
 
   @override
@@ -50,6 +44,27 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
     _tableScrollController.dispose();
     _tableVerticalScrollController.dispose();
     super.dispose();
+  }
+
+  /// Fetch all Firestore data once. League/season switches after this are free.
+  void _loadCache() {
+    _cache = null;
+    _table = null;
+    _cacheFuture = firestoreService.fetchTableRawCache().timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw TimeoutException('Dohvat podataka je istekao.'),
+    );
+  }
+
+  /// Synchronously rebuilds the table from the cached data – no network calls.
+  void _rebuildTable() {
+    final cache = _cache;
+    if (cache == null) return;
+    _table = firestoreService.buildLeagueTableFromCache(
+      cache: cache,
+      league: selectedLeague,
+      season: selectedSeason,
+    );
   }
 
   String _leagueShortLabel(String league) {
@@ -77,7 +92,7 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
         if (isSelected) return;
         setState(() {
           selectedLeague = value;
-          _reloadTable();
+          _rebuildTable();
         });
       },
       child: AnimatedContainer(
@@ -104,20 +119,11 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
     );
   }
 
-  DataRow _buildRow(
-    int position,
-    LeagueTableRow row, {
-    required bool isSimpleSeason,
-  }) {
+  DataRow _buildRow(int position, LeagueTableRow row) {
     Color? rowColor;
-
-    if (position == 1) {
-      rowColor = Colors.amber.withValues(alpha: 0.25); // gold
-    } else if (position == 2) {
-      rowColor = Colors.grey.withValues(alpha: 0.25); // silver
-    } else if (position == 3) {
-      rowColor = Colors.brown.withValues(alpha: 0.25); // bronze
-    }
+    if (position == 1) rowColor = Colors.amber.withValues(alpha: 0.25);
+    else if (position == 2) rowColor = Colors.grey.withValues(alpha: 0.25);
+    else if (position == 3) rowColor = Colors.brown.withValues(alpha: 0.25);
 
     return DataRow(
       color: rowColor != null ? WidgetStatePropertyAll(rowColor) : null,
@@ -143,6 +149,121 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
     );
   }
 
+  Widget _buildControls() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('Season: '),
+                  const SizedBox(width: 10),
+                  DropdownButton<String>(
+                    value: selectedSeason,
+                    items: seasons
+                        .map(
+                          (s) => DropdownMenuItem<String>(
+                            value: s,
+                            child: Text(s),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        selectedSeason = value;
+                        _rebuildTable();
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 40,
+                child: SingleChildScrollView(
+                  controller: _leagueTabsController,
+                  primary: false,
+                  scrollDirection: Axis.horizontal,
+                  child: Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _leagueChip('1'),
+                        const SizedBox(width: 8),
+                        _leagueChip('2'),
+                        const SizedBox(width: 8),
+                        _leagueChip('3'),
+                        const SizedBox(width: 8),
+                        _leagueChip('4'),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableView(List<LeagueTableRow> table) {
+    if (table.isEmpty) {
+      return const Center(
+        child: Text('Nema podataka za odabranu ligu i sezonu.'),
+      );
+    }
+    return Scrollbar(
+      controller: _tableVerticalScrollController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _tableVerticalScrollController,
+        primary: false,
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Scrollbar(
+          controller: _tableScrollController,
+          thumbVisibility: true,
+          notificationPredicate: (n) => n.metrics.axis == Axis.horizontal,
+          child: SingleChildScrollView(
+            controller: _tableScrollController,
+            primary: false,
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              columns: isSimpleSeason
+                  ? const [
+                      DataColumn(label: Text('#')),
+                      DataColumn(label: Text('Ime')),
+                      DataColumn(label: Text('Odigrano')),
+                      DataColumn(label: Text('Bodovi')),
+                    ]
+                  : const [
+                      DataColumn(label: Text('#')),
+                      DataColumn(label: Text('Player')),
+                      DataColumn(label: Text('M')),
+                      DataColumn(label: Text('W')),
+                      DataColumn(label: Text('L')),
+                      DataColumn(label: Text('Sets')),
+                      DataColumn(label: Text('Set +/-')),
+                      DataColumn(label: Text('Games')),
+                      DataColumn(label: Text('Gem +/-')),
+                      DataColumn(label: Text('Pts')),
+                    ],
+              rows: List.generate(
+                table.length,
+                (i) => _buildRow(i + 1, table[i]),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -151,83 +272,32 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: () {
-              setState(_reloadTable);
-            },
             icon: const Icon(Icons.refresh),
+            onPressed: () => setState(_loadCache),
           ),
         ],
       ),
       body: Column(
         children: [
           const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Season: '),
-                        const SizedBox(width: 10),
-                        DropdownButton<String>(
-                          value: selectedSeason,
-                          items: seasons.map((season) {
-                            return DropdownMenuItem<String>(
-                              value: season,
-                              child: Text(season),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value == null) return;
-                            setState(() {
-                              selectedSeason = value;
-                              _reloadTable();
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 40,
-                      child: SingleChildScrollView(
-                        controller: _leagueTabsController,
-                        primary: false,
-                        scrollDirection: Axis.horizontal,
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _leagueChip('1'),
-                              const SizedBox(width: 8),
-                              _leagueChip('2'),
-                              const SizedBox(width: 8),
-                              _leagueChip('3'),
-                              const SizedBox(width: 8),
-                              _leagueChip('4'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          _buildControls(),
           const SizedBox(height: 10),
-
           Expanded(
-            child: FutureBuilder<List<LeagueTableRow>>(
-              key: ValueKey(_futureKey),
-              future: _tableFuture,
+            child: FutureBuilder<TableRawCache>(
+              future: _cacheFuture,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                // Cache just finished loading – compute the table.
+                if (snapshot.connectionState == ConnectionState.done &&
+                    snapshot.hasData &&
+                    _cache != snapshot.data) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() {
+                        _cache = snapshot.data;
+                        _rebuildTable();
+                      });
+                    }
+                  });
                 }
 
                 if (snapshot.hasError) {
@@ -235,77 +305,27 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Greška: ${snapshot.error}'),
+                        const Icon(Icons.error_outline,
+                            size: 48, color: Colors.red),
                         const SizedBox(height: 8),
-                        FilledButton(
-                          onPressed: () {
-                            setState(_reloadTable);
-                          },
-                          child: const Text('Pokušaj ponovno'),
+                        Text('Greška: ${snapshot.error}'),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: () => setState(_loadCache),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Pokušaj ponovno'),
                         ),
                       ],
                     ),
                   );
                 }
 
-                final table = snapshot.data ?? [];
-
-                if (table.isEmpty) {
-                  return const Center(
-                    child: Text('Nema podataka za odabranu ligu i sezonu.'),
-                  );
+                // Still loading the initial cache.
+                if (_table == null) {
+                  return const Center(child: CircularProgressIndicator());
                 }
 
-                return Scrollbar(
-                  controller: _tableVerticalScrollController,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _tableVerticalScrollController,
-                    primary: false,
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Scrollbar(
-                      controller: _tableScrollController,
-                      thumbVisibility: true,
-                      notificationPredicate: (notification) {
-                        return notification.metrics.axis == Axis.horizontal;
-                      },
-                      child: SingleChildScrollView(
-                        controller: _tableScrollController,
-                        primary: false,
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columns: isSimpleSeason
-                              ? const [
-                                  DataColumn(label: Text('#')),
-                                  DataColumn(label: Text('Ime')),
-                                  DataColumn(label: Text('Odigrano')),
-                                  DataColumn(label: Text('Bodovi')),
-                                ]
-                              : const [
-                                  DataColumn(label: Text('#')),
-                                  DataColumn(label: Text('Player')),
-                                  DataColumn(label: Text('M')),
-                                  DataColumn(label: Text('W')),
-                                  DataColumn(label: Text('L')),
-                                  DataColumn(label: Text('Sets')),
-                                  DataColumn(label: Text('Set +/-')),
-                                  DataColumn(label: Text('Games')),
-                                  DataColumn(label: Text('Gem +/-')),
-                                  DataColumn(label: Text('Pts')),
-                                ],
-                          rows: List.generate(
-                            table.length,
-                            (index) => _buildRow(
-                              index + 1,
-                              table[index],
-                              isSimpleSeason: isSimpleSeason,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
+                return _buildTableView(_table!);
               },
             ),
           ),
