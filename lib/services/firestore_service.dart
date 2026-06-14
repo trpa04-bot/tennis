@@ -820,11 +820,11 @@ class FirestoreService {
     required List<Player> playersInLeague,
   }) async {
     if (season == null || season.isEmpty) return const {};
+    final normalizedLeague = _normalizeLeague(league);
 
     final snapshot = await _db
         .collection('season_table_seeds')
         .where('season', isEqualTo: season)
-        .where('league', isEqualTo: league)
         .get();
 
     if (snapshot.docs.isEmpty) return const {};
@@ -834,6 +834,9 @@ class FirestoreService {
 
     for (final doc in snapshot.docs) {
       final data = Map<String, dynamic>.from(doc.data() as Map);
+      final seedLeague = _normalizeLeague(data['league']?.toString() ?? '');
+      if (seedLeague != normalizedLeague) continue;
+
       final seed = _SeasonTableSeed(
         playerId: data['playerId']?.toString() ?? '',
         playerName: data['playerName']?.toString() ?? '',

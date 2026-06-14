@@ -3,30 +3,30 @@ class LeagueUtils {
 
   static String normalize(String league) {
     final value = league.trim().toLowerCase();
-    if (value == '1' ||
-        value == '1.(roland garros)' ||
-        value == '1. roland garros' ||
-        value == '1. liga') {
+    if (value.isEmpty) {
+      return '';
+    }
+
+    if (value.contains('roland') || value.contains('garros')) {
       return '1';
     }
-    if (value == '2' ||
-        value == '2.(australian open)' ||
-        value == '2. australian open' ||
-        value == '2. liga') {
+    if (value.contains('australian') || value.contains('ao')) {
       return '2';
     }
-    if (value == '3' ||
-        value == '3.(wimbledon)' ||
-        value == '3. wimbledon' ||
-        value == '3. liga') {
+    if (value.contains('wimbledon')) {
       return '3';
     }
-    if (value == '4' ||
-        value == '4.(us open)' ||
-        value == '4. us open' ||
-        value == '4. liga') {
+    if (value.contains('us open') || value.contains('usopen')) {
       return '4';
     }
+
+    final leadingDigit = RegExp(
+      r'^[^0-9]*([1-4])(?:[^0-9]|$)',
+    ).firstMatch(value);
+    if (leadingDigit != null) {
+      return leadingDigit.group(1)!;
+    }
+
     return league;
   }
 
