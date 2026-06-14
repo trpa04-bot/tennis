@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -19,22 +18,9 @@ Future<void> main() async {
 
   await Hive.initFlutter();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await _configureFirestoreForWeb();
   await ThemeService.instance.init();
 
   runApp(const TennisClubApp());
-}
-
-Future<void> _configureFirestoreForWeb() async {
-  if (!kIsWeb) return;
-
-  // Safari can stall on WebChannel/WebSocket paths under some networks.
-  // Long-polling fallback is more stable for Firestore read-heavy screens.
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: false,
-    webExperimentalForceLongPolling: true,
-    webExperimentalAutoDetectLongPolling: true,
-  );
 }
 
 class TennisClubApp extends StatefulWidget {
