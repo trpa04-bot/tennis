@@ -631,7 +631,15 @@ class FirestoreService {
     String? season,
   }) async {
     final normalizedLeague = _normalizeLeague(league);
-    final playerSnapshot = await _db.collection('players').get();
+
+    // Fetch players and matches in parallel to halve network round-trip time.
+    final results = await Future.wait([
+      _db.collection('players').get(),
+      _db.collection('matches').get(),
+    ]);
+
+    final playerSnapshot = results[0];
+    final matchSnapshot = results[1];
 
     final playersInLeague = playerSnapshot.docs
         .map(
@@ -647,8 +655,6 @@ class FirestoreService {
               !player.archived,
         )
         .toList();
-
-    final matchSnapshot = await _db.collection('matches').get();
 
     final allMatches = matchSnapshot.docs.map((doc) {
       final data = Map<String, dynamic>.from(doc.data() as Map);
@@ -677,25 +683,32 @@ class FirestoreService {
       return true;
     }).toList();
 
-    final seasonSeeds = await _getSeasonSeedsForLeague(
-      league: league,
-      season: season,
-      playersInLeague: resolvedPlayersInLeague,
-    );
+    // Fetch seeds and config in parallel (both independent of each other).
+    final secondResults = await Future.wait([
+      _getSeasonSeedsForLeague(
+        league: league,
+        season: season,
+        playersInLeague: resolvedPlayersInLeague,
+      ),
+      _db.collection('config').doc('trend').get(),
+    ]);
+
+    final seasonSeeds = secondResults[0] as Map<String, _SeasonTableSeed>;
+    final configDoc = secondResults[1] as DocumentSnapshot;
 
     filteredMatches.sort((a, b) => b.playedAt.compareTo(a.playedAt));
 
-    final configDoc = await _db.collection('config').doc('trend').get();
-    final resetAt = (configDoc.data()?['resetAt'] as Timestamp?)?.toDate();
+    final resetAt = (configDoc.data() as Map<String, dynamic>?)?['resetAt'];
+    final resetAtDate = resetAt is Timestamp ? resetAt.toDate() : null;
 
     List<MatchModel> previousMatches;
     if (filteredMatches.length >= 2) {
       final latestDate = filteredMatches.first.playedAt;
       previousMatches = filteredMatches
           .where((m) => m.playedAt.isBefore(latestDate))
-          .where((m) => resetAt == null || m.playedAt.isAfter(resetAt))
+          .where((m) => resetAtDate == null || m.playedAt.isAfter(resetAtDate))
           .toList();
-      if (previousMatches.isEmpty && resetAt == null) {
+      if (previousMatches.isEmpty && resetAtDate == null) {
         previousMatches = filteredMatches.sublist(1);
       }
     } else {

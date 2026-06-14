@@ -19,6 +19,8 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
   String selectedLeague = '1';
   String selectedSeason = 'Winter 2026';
   Future<List<LeagueTableRow>>? _tableFuture;
+  // Each reload gets a unique key so FutureBuilder fully discards the old state.
+  Object _futureKey = Object();
 
   final List<String> seasons = const ['Winter 2026', 'Summer 2026'];
 
@@ -31,12 +33,13 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
   }
 
   void _reloadTable() {
+    _futureKey = Object();
     _tableFuture = firestoreService
         .getLeagueTableOnce(league: selectedLeague, season: selectedSeason)
         .timeout(
-          const Duration(seconds: 20),
+          const Duration(seconds: 30),
           onTimeout: () {
-            throw TimeoutException('Učitavanje tablice je isteklo.');
+            throw TimeoutException('Učitavanje tablice je isteklo (>30s).');
           },
         );
   }
@@ -220,6 +223,7 @@ class _LeagueTablePageState extends State<LeagueTablePage> {
 
           Expanded(
             child: FutureBuilder<List<LeagueTableRow>>(
+              key: ValueKey(_futureKey),
               future: _tableFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
