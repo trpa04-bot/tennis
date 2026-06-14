@@ -526,98 +526,102 @@ class FirestoreService {
     required String league,
     String? season,
   }) {
-    return _db
-        .collection('players')
-        .where('league', isEqualTo: league)
-        .snapshots()
-        .asyncExpand((playerSnapshot) async* {
-          final playersInLeague = playerSnapshot.docs
-              .map(
-                (doc) => Player.fromMap(
-                  Map<String, dynamic>.from(doc.data() as Map),
-                  id: doc.id,
-                ),
-              )
-              .where((player) => !player.frozen && !player.archived)
+    final normalizedLeague = _normalizeLeague(league);
+
+    return _db.collection('players').snapshots().asyncExpand((
+      playerSnapshot,
+    ) async* {
+      final playersInLeague = playerSnapshot.docs
+          .map(
+            (doc) => Player.fromMap(
+              Map<String, dynamic>.from(doc.data() as Map),
+              id: doc.id,
+            ),
+          )
+          .where(
+            (player) =>
+                _normalizeLeague(player.league) == normalizedLeague &&
+                !player.frozen &&
+                !player.archived,
+          )
+          .toList();
+
+      final configDoc = await _db.collection('config').doc('trend').get();
+      final resetAt = (configDoc.data()?['resetAt'] as Timestamp?)?.toDate();
+
+      yield* _db.collection('matches').snapshots().asyncMap((
+        matchSnapshot,
+      ) async {
+        final allMatches = matchSnapshot.docs.map((doc) {
+          final data = Map<String, dynamic>.from(doc.data() as Map);
+          return MatchModel.fromMap(data, id: doc.id);
+        }).toList();
+
+        final resolvedPlayersInLeague = _mergePlayersWithLeagueHistory(
+          league: league,
+          currentPlayers: playersInLeague,
+          allMatches: allMatches,
+        );
+
+        final seasonSeeds = await _getSeasonSeedsForLeague(
+          league: league,
+          season: season,
+          playersInLeague: resolvedPlayersInLeague,
+        );
+
+        final filteredMatches = allMatches.where((match) {
+          final belongsToLeague = _matchBelongsToLeague(
+            league: league,
+            match: match,
+            playersInLeague: resolvedPlayersInLeague,
+          );
+
+          if (!belongsToLeague) return false;
+
+          if (season != null && season.isNotEmpty) {
+            return match.season == season;
+          }
+
+          return true;
+        }).toList();
+
+        filteredMatches.sort((a, b) => b.playedAt.compareTo(a.playedAt));
+
+        List<MatchModel> previousMatches;
+        if (filteredMatches.length >= 2) {
+          final latestDate = filteredMatches.first.playedAt;
+          previousMatches = filteredMatches
+              .where((m) => m.playedAt.isBefore(latestDate))
+              .where((m) => resetAt == null || m.playedAt.isAfter(resetAt))
               .toList();
+          // Fallback only when no reset: all matches share same timestamp
+          if (previousMatches.isEmpty && resetAt == null) {
+            previousMatches = filteredMatches.sublist(1);
+          }
+        } else {
+          previousMatches = <MatchModel>[];
+        }
 
-          final configDoc = await _db.collection('config').doc('trend').get();
-          final resetAt = (configDoc.data()?['resetAt'] as Timestamp?)
-              ?.toDate();
+        final currentTable = _buildLeagueTable(
+          players: resolvedPlayersInLeague,
+          matches: filteredMatches,
+          seasonSeeds: seasonSeeds,
+        );
 
-          yield* _db.collection('matches').snapshots().asyncMap((
-            matchSnapshot,
-          ) async {
-            final allMatches = matchSnapshot.docs.map((doc) {
-              final data = Map<String, dynamic>.from(doc.data() as Map);
-              return MatchModel.fromMap(data, id: doc.id);
-            }).toList();
+        final previousTable = _buildLeagueTable(
+          players: resolvedPlayersInLeague,
+          matches: previousMatches,
+          seasonSeeds: seasonSeeds,
+        );
 
-            final resolvedPlayersInLeague = _mergePlayersWithLeagueHistory(
-              league: league,
-              currentPlayers: playersInLeague,
-              allMatches: allMatches,
-            );
+        _applyMovementAndChaseData(
+          currentTable: currentTable,
+          previousTable: previousTable,
+        );
 
-            final seasonSeeds = await _getSeasonSeedsForLeague(
-              league: league,
-              season: season,
-              playersInLeague: resolvedPlayersInLeague,
-            );
-
-            final filteredMatches = allMatches.where((match) {
-              final belongsToLeague = _matchBelongsToLeague(
-                league: league,
-                match: match,
-                playersInLeague: resolvedPlayersInLeague,
-              );
-
-              if (!belongsToLeague) return false;
-
-              if (season != null && season.isNotEmpty) {
-                return match.season == season;
-              }
-
-              return true;
-            }).toList();
-
-            filteredMatches.sort((a, b) => b.playedAt.compareTo(a.playedAt));
-
-            List<MatchModel> previousMatches;
-            if (filteredMatches.length >= 2) {
-              final latestDate = filteredMatches.first.playedAt;
-              previousMatches = filteredMatches
-                  .where((m) => m.playedAt.isBefore(latestDate))
-                  .where((m) => resetAt == null || m.playedAt.isAfter(resetAt))
-                  .toList();
-              // Fallback only when no reset: all matches share same timestamp
-              if (previousMatches.isEmpty && resetAt == null) {
-                previousMatches = filteredMatches.sublist(1);
-              }
-            } else {
-              previousMatches = <MatchModel>[];
-            }
-
-            final currentTable = _buildLeagueTable(
-              players: resolvedPlayersInLeague,
-              matches: filteredMatches,
-              seasonSeeds: seasonSeeds,
-            );
-
-            final previousTable = _buildLeagueTable(
-              players: resolvedPlayersInLeague,
-              matches: previousMatches,
-              seasonSeeds: seasonSeeds,
-            );
-
-            _applyMovementAndChaseData(
-              currentTable: currentTable,
-              previousTable: previousTable,
-            );
-
-            return currentTable;
-          });
-        });
+        return currentTable;
+      });
+    });
   }
 
   // LEAGUE TABLE ONCE (za promotions)
@@ -626,10 +630,8 @@ class FirestoreService {
     required String league,
     String? season,
   }) async {
-    final playerSnapshot = await _db
-        .collection('players')
-        .where('league', isEqualTo: league)
-        .get();
+    final normalizedLeague = _normalizeLeague(league);
+    final playerSnapshot = await _db.collection('players').get();
 
     final playersInLeague = playerSnapshot.docs
         .map(
@@ -638,7 +640,12 @@ class FirestoreService {
             id: doc.id,
           ),
         )
-        .where((player) => !player.frozen && !player.archived)
+        .where(
+          (player) =>
+              _normalizeLeague(player.league) == normalizedLeague &&
+              !player.frozen &&
+              !player.archived,
+        )
         .toList();
 
     final matchSnapshot = await _db.collection('matches').get();
